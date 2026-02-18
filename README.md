@@ -1,2 +1,4 @@
 # uri-seat
-URI Nutrition &amp; CompSci Sustainable Eating Assessment Tool
+URI Nutrition and Computer Science Departments
+
+Sustainable Eating Assessment Tool
