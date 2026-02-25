@@ -1,0 +1,321 @@
+Food commodity ITEM,food_code,matched_affordability_item,match_score
+SESAME OIL,82107000,Sesame oil,1.03
+OLIVE OIL,82104000,Olive oil,1.03
+COCONUT OIL,82101500,Coconut oil,1.03
+RAISINS,62125100,Raisins,1.0
+MIXED NUTS,42110000,"Mixed nuts, NFS",0.9166666666666667
+CHEESE,14010000,"Cheese, NFS",0.89
+TOMATO JUICE,74301100,"Tomato juice, 100%",0.8889285714285715
+SWEET POTATO,53360000,"Pie, sweet potato",0.8889285714285715
+CHOCOLATE,52302600,"Muffin, chocolate",0.8539999999999999
+BUTTER*,81100500,"Butter, NFS",0.8375
+BANANA,63107010,"Banana, raw",0.83
+POTATO,71000100,"Potato, NFS",0.83
+PINEAPPLE JUICE,64124020,"Pineapple juice, 100%",0.8264705882352941
+TOMATO,74701000,Tomato sandwich,0.7942857142857143
+APPLE,53415120,"Fritter, apple",0.7911111111111111
+MILK ACID,11100000,"Milk, NFS",0.7907422969187676
+COW MILK,54308000,"Crackers, milk",0.7873809523809525
+APPLES,53415120,"Fritter, apple",0.7852631578947368
+PEANUT,42204050,Peanut sauce,0.7833333333333332
+SOY MILK*,11321200,"Soy milk, nonfat, chocolate (Includes Soymilk)",0.7809230769230769
+BUTTERED MILK,54308000,"Crackers, milk",0.780787545787546
+RICE,13210410,"Pudding, rice",0.7799999999999999
+MILK POWDER,11100000,"Milk, NFS",0.7783583959899749
+MILK CREAMY,11100000,"Milk, NFS",0.7783583959899749
+OLIVE OIL REFINED,82104000,Olive oil,0.7684615384615385
+CHEESE GRATED,14650100,Cheese sauce,0.754
+CAULIFLOWER,75107000,"Cauliflower, raw",0.7442307692307693
+WATERMELON,63149010,"Watermelon, raw",0.7416666666666667
+ARTICHOKE,14620110,Artichoke dip,0.7386363636363636
+ASPARAGUS* ,75100800,"Asparagus, raw",0.7386363636363636
+MARGARINE*,81102000,"Margarine, NFS",0.7386363636363636
+BROCCOLI,72201100,"Broccoli, raw",0.735
+EGGPLANT,75111200,"Eggplant, raw",0.735
+MAIZE OIL,75216137,"Corn, frozen, cooked with oil",0.7338095238095237
+PUMPKIN,53347000,"Pie, pumpkin",0.7305555555555555
+SPINACH,72125100,"Spinach, raw",0.7305555555555555
+AVOCADO,63105010,"Avocado, raw",0.7305555555555555
+SOY SAUCE,41420300,Soy sauce (Includes shoyu; tamari),0.7271428571428571
+MAIZE,75411020,Corn fritter,0.7270588235294118
+OLIVES*,75510000,"Olives, NFS",0.725
+GRAPES,63123000,"Grapes, raw",0.725
+GARLIC,75111500,"Garlic, raw",0.725
+TURNIP,75129000,"Turnip, raw",0.725
+SQUASH,53347600,"Pie, squash",0.725
+ORANGE JUICE,61210000,"Orange juice, 100%, NFS",0.725
+PINEAPPLE,62120100,"Pineapple, dried",0.725
+PAPAYA,63133010,"Papaya, raw",0.725
+LEMON,61113010,"Lemon, raw",0.7178571428571429
+GUAVA,63125010,"Guava, raw",0.7178571428571429
+BREAD,52403000,"Bread, nut",0.7178571428571429
+SALMON,27450310,Lomi salmon,0.7161764705882353
+APRICOT,62104100,"Apricot, dried",0.715
+LIME,61116010,"Lime, raw",0.7083333333333333
+PEPPER,27416150,Pepper steak,0.7083333333333333
+BEANS (F),41100990,"Beans, NFS",0.7075
+WHEAT FLOUR,53420310,"Wheat flour fritter, without syrup",0.705
+PORK LIVER,22002800,Pork jerky,0.7025
+WHEAT,57412000,"Wheat germ, plain",0.7002380952380952
+MANGO,62114050,"Mango, dried",0.7
+PESTO,81302070,Pesto sauce,0.7
+FIG,63119010,"Fig, raw",0.695
+PEACH,64205010,Peach nectar,0.6926470588235294
+CHICKEN MEAT WITH BONE*,27142000,Chicken with gravy,0.69125
+TOMATO JUICE CONCENTRATED*,74301100,"Tomato juice, 100%",0.6893292682926829
+CORN CANNED,75216141,"Corn, canned, cooked with oil",0.6886466165413534
+TOMATO DRIED*,74206000,Sun-dried tomatoes (Includes dried red tomatoes),0.6877586206896551
+RYE,51420000,"Roll, rye",0.6840909090909091
+COCOA BUTTER,11511100,"Chocolate milk, ready to drink, whole",0.6826305609284331
+PEAR,64215010,Pear nectar,0.6816666666666666
+OKRA,75507000,"Okra, pickled",0.6749999999999999
+PORK FAT,22002800,Pork jerky,0.6736111111111112
+PORK OFFAL,22002800,Pork jerky,0.6625
+CHICKEN BONE FREE MEAT,24198570,"Chicken, canned, meat only",0.6604347826086957
+COCONUT,82101500,Coconut oil,0.6555555555555556
+YOGURT FLAVORED,14301100,"Cream cheese, regular, flavored",0.6519480519480519
+BEEF LIVER,27460750,"Liver, beef or calves, and onions",0.6509059233449477
+CINNAMON,91104100,"Sugar, cinnamon",0.6454545454545455
+POTATO FLAKES,71000100,"Potato, NFS",0.6448550724637682
+CHEESE BLUE-VEINED,14107200,"Cheese, Muenster",0.6416883116883116
+SUGAR CANE,91104100,"Sugar, cinnamon",0.6383333333333334
+STRAWBERRY,53348000,"Pie, strawberry cream",0.6333333333333333
+CHOCOLATE OR CREAM FILLED COOKIES**,53521210,"Doughnut, custard-filled (Includes cream or chocolate filled; without icing)",0.6285930735930736
+POTATOES (F),71000100,"Potato, NFS",0.6283333333333333
+LINSEED OIL,82104000,Olive oil,0.6283333333333333
+PLANTAIN,71905000,"Ripe plantain, raw",0.628
+POTATO STARCH,71000100,"Potato, NFS",0.6274637681159421
+COCOA PASTE,52302600,"Muffin, chocolate",0.6220370370370369
+SUGAR BEET,91102010,"Sugar, brown",0.6216666666666667
+PALM OIL,82107000,Sesame oil,0.6216666666666667
+TOMATO PEELED,74203010,"Tomatoes, scalloped",0.6173655913978495
+BEEF OFFAL,27113100,Beef stroganoff,0.6163333333333334
+SOYBEAN,41420050,Soybean curd cheese,0.6162637362637362
+RAPESEED OIL,82107000,Sesame oil,0.6156060606060606
+CARROT,73105010,"Carrot juice, 100%",0.6090909090909091
+TOMATO PASTE,74203010,"Tomatoes, scalloped",0.6083333333333334
+TOMATO PUREE,74203010,"Tomatoes, scalloped",0.6083333333333334
+LETTUCE,75113080,"Lettuce, arugula, raw",0.6076923076923078
+HARD AND SEMI-HARD CHEESE,71801100,Potato and cheese soup,0.6071276595744681
+COCOA POWDER,52302600,"Muffin, chocolate",0.6040476190476189
+TOMATO ARRABBIATA,74701000,Tomato sandwich,0.6008333333333333
+CAHSEW APPLE,53415120,"Fritter, apple",0.6003333333333334
+CREAM,13126000,"Ice cream, fried",0.6
+SUNFLOWER OIL,82104000,Olive oil,0.5974242424242424
+PISTACHIO,42114130,"Pistachio nuts, NFS",0.5958333333333333
+PORK MEAT WITH BONE,58103120,"Tamale with meat (Includes beef; pork; tamale, NFS)",0.593904428904429
+BEET SUGAR,91101000,"Sugar, NFS",0.5935964912280702
+CANE SUGAR,91101000,"Sugar, NFS",0.5935964912280702
+KETCHUP,74401010,Ketchup (Includes catsup),0.5933333333333334
+ONION,75608100,"Onion soup, French",0.5909090909090909
+COFFEE GREEN,12200100,"Coffee creamer, NFS",0.5900000000000001
+YOGURT WHITE,11400000,"Yogurt, NFS",0.5856060606060606
+BREAD WHOLE**,51301600,"Bread, pita, whole wheat (Includes whole grain)",0.5814814814814815
+COFFEE BEAN,12200100,"Coffee creamer, NFS",0.581264367816092
+POULTRY FAT,28501110,"Gravy, poultry, fat free (Includes turkey; chicken; giblet; reduced fat or sodium)",0.5811627906976744
+BEAN,41203030,Black bean salad,0.5800000000000001
+BACON,22501010,"Canadian bacon, cooked",0.5769230769230769
+CURED PORK BONE FREE,22431000,"Pork roll, cured, fried",0.5761382113821139
+RASPBERRY,53310050,"Pie, raspberry, two crust",0.575
+RICOTTA,14201500,"Cheese, Ricotta",0.5733333333333334
+WHEAT GLUTEN,57412000,"Wheat germ, plain",0.5719047619047619
+APPLE JUICE,53415120,"Fritter, apple",0.5716666666666667
+OAT,57000100,"Cereal, oat, NFS",0.5705882352941176
+COFFEE ROASTED,12200100,"Coffee creamer, NFS",0.5683333333333334
+COFFEE WEAK,12200100,"Coffee creamer, NFS",0.5674712643678161
+SOY PASTE,41420110,Miso (Includes fermented soybean paste),0.5636180124223602
+COD,26109170,"Cod, dried, salted",0.5631578947368421
+PORK CUTS WITH BONE,27120020,Ham or pork with gravy,0.5608943089430894
+BEEF MEAT WITH BONE,27212150,Beef goulash with noodles,0.5601298701298701
+MAIZE GREEN,75216153,"Corn, creamed",0.5578985507246377
+RICE GROATS,13210410,"Pudding, rice",0.5578985507246377
+BEEF CURED MEAT,28500040,"Gravy, beef (Includes brown; meat; mushroom)",0.5575462962962963
+ORANGE,61210000,"Orange juice, 100%, NFS",0.5548076923076923
+WHEAT PELLETS,57412000,"Wheat germ, plain",0.5536781609195403
+PEAS (F),41304000,Wasabi peas,0.5524509803921569
+STURGEON,26211100,"Roe, sturgeon (Includes caviar)",0.5513888888888888
+GINGER,92410610,"Soft drink, ginger ale",0.5513888888888888
+MUSTARD SEED,75506010,Mustard,0.5473684210526316
+COFFEE STRONG,12200100,"Coffee creamer, NFS",0.5465591397849463
+LAMB MEAT WITH BONE*,77316600,Eggplant and meat casserole (Includes Moussaka made with lamb or beef),0.5452298850574713
+TOMATO & BASIL,74101000,"Tomatoes, raw (Includes plum and Italian tomatoes)",0.5437896825396825
+COFFEE SOLUBLE,12200100,"Coffee creamer, NFS",0.5433333333333333
+WHEAT STARCH,57412000,"Wheat germ, plain",0.5433333333333333
+PASTA*,58146210,"Pasta with sauce, NFS",0.5425
+COFFEE STANDARD,12200100,"Coffee creamer, NFS",0.5403030303030303
+CUCUMBER,75111000,"Cucumber, raw (Includes cucumber, NFS)",0.5386904761904762
+MAIZE GROATS,75411020,Corn fritter,0.5383333333333333
+MAIZE STARCH,75411020,Corn fritter,0.5383333333333333
+SESAME SEED,43103300,Tahini (Includes sesame seed butter; sesame seed paste),0.5323412698412698
+BEER*,92410710,"Soft drink, root beer",0.5291666666666667
+SOY BURGER,27115000,Beef with soy-based sauce,0.5225
+PEANUT OIL,82101500,Coconut oil,0.5183333333333333
+SOYBEAN OIL,82107000,Sesame oil,0.5183333333333333
+BEEF BONE FREE MEAT*,28501010,"Gravy, beef, fat free (Includes brown; meat; mushroom; reduced fat or sodium)",0.5158772687986171
+PLUM,63143010,"Plum, raw (Includes plum, NFS)",0.5158333333333333
+ALMOND SHELLED,91726150,MARS Almond Bar,0.5098850574712643
+WINE*,14410620,"Cheese,  with wine",0.505
+FLAVORED CRACKERS**,54338020,"Crackers, wheat, flavored (Wheat Thins) (Includes all flavors; Wheat Thins Flavored Stix)",0.5025252525252525
+SOYBEAN FLOUR,41420050,Soybean curd cheese,0.5008333333333334
+MANDARIN FISH,58101555,Soft taco with fish,0.5008333333333334
+BLACKBERRY,53303000,"Pie, blackberry, two crust (Includes boysenberry)",0.49772727272727274
+PORK BONE FREE MEAT*,22002800,Pork jerky,0.4944088669950739
+TAPIOCA OF POTATOES,58122220,"Gnocchi, potato",0.494090909090909
+PLAIN CRACKERS**,54340100,"Crackers, gluten free, plain (Includes Glutino; Van's; multigrain)",0.4932432432432432
+BLUEBERRY,53304000,"Pie, blueberry, two crust (Includes huckleberry)",0.49292452830188677
+CLEMENTINE,61100600,"Clementine, raw (Includes cutie; mandarin orange, raw)",0.4927966101694915
+MANDARIN,61122330,"Orange, canned, in syrup (Includes mandarin)",0.49166666666666664
+BREAD PLAIN**,27564020,"Frankfurter or hot dog sandwich, NFS, plain, on wheat bread",0.4915196743554952
+YOGURT WHITE LACTOSE FREE,11114350,"Milk, lactose free, whole (Includes Lactaid whole milk; lactose reduced)",0.4908695652173912
+ZUCCHINI,75128010,"Summer squash, green, raw (Includes zucchini)",0.4903061224489796
+PEA,41602030,Split pea and ham soup,0.488
+POTATO FLOUR & MEAL,71801100,Potato and cheese soup,0.4866279069767442
+SPINACH (F),72125100,"Spinach, raw",0.485
+SWEET CORN (F),75411020,Corn fritter,0.485
+KIWI,63126500,"Kiwi fruit, raw (Includes kiwifruit)",0.48324324324324325
+TILAPIA,26158050,"Tilapia, steamed or poached (Includes mojarra)",0.481
+ARECA NUT,52403000,"Bread, nut",0.4805555555555555
+STRING BEAN,75302080,"Bean salad, yellow and/or green string beans (Includes three bean salad)",0.48
+RICE FLOUR & MEAL,55702000,Cake or pancake made with rice flour and/or dried beans (Includes Indian steamed rice cake (Idli)),0.4772566371681416
+BARLEY,93102300,"Beer, higher alcohol (Includes barley wine)",0.4771739130434782
+GREEN TEA,92303010,"Tea, hot, leaf, green (Includes unsweetened; tea bags; brewed; Japanese green tea; green tea blends)",0.476
+COCOA CAKES AND CROISSANT**,91705090,Chocolate candy with fondant and caramel (Includes Sky Bar),0.4751829268292683
+MALT,57305170,Cereal (Malt-O-Meal Coco-Roos),0.475
+EGG PASTA*,58148120,Macaroni or pasta salad with egg (Includes made with assorted vegetables and any dressing),0.47397303727200635
+MIXED VEGETABLES (F),75310990,"Classic mixed vegetables, cooked, from restaurant",0.4726739926739926
+CORIANDER,75109550,"Cilantro, raw (Includes coriander leaves; Chinese parsley)",0.4714285714285714
+FENNEL SEEDS,43104000,Flax seeds,0.47045454545454546
+CRANBERRY,57143500,"Cereal (Post Great Grains, Cranberry Almond Crunch)",0.4694078947368421
+TROUT,26137100,"Salmon, raw (Includes saltwater trout; sashimi)",0.4666666666666667
+MILLET,56202000,"Millet, no added fat (Includes all liquids)",0.46645962732919255
+HAZELNUT WITH SHELL,91713040,"Fudge, chocolate, with nuts",0.46590909090909083
+GARLIC POWDER,75111500,"Garlic, raw",0.4641304347826086
+WALNUT WITH SHELL,91713040,"Fudge, chocolate, with nuts",0.46071428571428563
+MOZZARELLA,14107010,"Cheese, Mozzarella, NFS (Includes pizza cheese; cheese curds)",0.4606060606060606
+CHICKPEA,41205070,"Hummus, plain (Includes chickpea or garbanzo bean dip)",0.46048728813559325
+CHERRY SOUR,91721000,Licorice (Includes Good and Plenty; Twizzlers; Twizzlers Nibs Cherry Bits; Twizzler Bites; Sour Punch),0.460352264557872
+GOAT OFFAL,23150100,"Goat, boiled",0.45833333333333326
+SUNFLOWER SEED,43102400,"Sunflower seeds, NFS",0.45719696969696966
+ALMOND WITH SHELL,53215500,"Cookie, coconut (Includes with nuts)",0.45499999999999996
+EGG YOLKS,32102000,"Egg, deviled",0.45499999999999996
+"MAIZE HULLED, PEARLED, SLICED OR KIBBLED",51401010,"Bread, rye (Includes corn rye; Russian bread; pre-sliced or not)",0.45093576526566215
+TARO,71962040,"Taro, cooked (Includes with or without fat)",0.45064935064935063
+TURKEY BONE FREE MEAT,24198570,"Chicken, canned, meat only",0.4488888888888889
+FLOUNDER,26115160,"Flounder, steamed or poached (Includes dab; fluke; sole; turbot)",0.4484848484848485
+BREAD MULTICEREAL**,52403000,"Bread, nut",0.44807692307692304
+SHEEP CARCASSE WITH BONE,27330170,Stuffed grape leaves with lamb and rice,0.44773809523809527
+SHEEP CUTS WITH BONE,27330170,Stuffed grape leaves with lamb and rice,0.4474152542372881
+GRAPEFRUIT JUICE,61201220,"Grapefruit juice, 100%, canned, bottled or in a carton (Includes Florida's Natural; Indian River; store brand; Simply Grapefruit)",0.44705882352941173
+LENTIL,41603010,"Lentil soup, home recipe, canned, or ready-to-serve",0.4444444444444444
+PALM NUT,52403000,"Bread, nut",0.4426470588235294
+KOLA NUT,52403000,"Bread, nut",0.4426470588235294
+YAM,71945010,"Yam, cooked, Puerto Rican (Includes Name hervido)",0.4392857142857143
+TOFU,41420010,Soybean curd (Includes stir fried; bean curd; tofu),0.43762254901960784
+TURBOT,26115160,"Flounder, steamed or poached (Includes dab; fluke; sole; turbot)",0.4375
+PEA (fresh),75231021,"Snowpea, fresh, cooked, fat added (Includes sugar snap pea; sugar pea; pea pod; NS as to fat added; from restaurant)",0.4372844827586207
+CITRUS,92432000,"Fruit juice drink, citrus, carbonated (Includes sparkling juice; Izze Sparkling)",0.4358796296296296
+CARP,26105160,"Carp, steamed or poached (Includes bream; buffalofish; sucker)",0.4324795081967213
+MILKFISH,26119110,"Herring, cooked, NS as to cooking method (Includes alewife; milkfish; shad)",0.43246753246753245
+WALNUT SHELLED,42114145,"Pistachio nuts, unsalted",0.4306306306306306
+CAHSEW NUT,52403000,"Bread, nut",0.4302631578947368
+GROUPER,26141160,"Sea bass, steamed or poached (Includes grouper; striped bass; wreakfish; bass. NFS)",0.4287349397590361
+BLACK TEA,92302500,"Tea, hot, leaf, black, decaffeinated (Includes spiced, lemon- or other fruit-flavored tea; unsweetened; tea bags; brewed; chai tea; black tea blends)",0.42776876267748476
+ASS MEAT,20000000,"Meat, NFS",0.42499999999999993
+WHOLEGRAIN CRACKERS**,54102060,"Crackers, Cuban",0.42196969696969694
+"MALT, ROASTED",42116100,"Walnuts, honey roasted",0.4208333333333333
+MULE MEAT,20000000,"Meat, NFS",0.4191176470588235
+CHERRY SWEET,53410500,"Cobbler, cherry",0.41730769230769227
+DRIED CASSAVA,62113100,"Fig, dried",0.4159090909090909
+SHEEP OFFAL,23111010,"Lamb hocks, cooked (Includes mutton hocks)",0.4159047619047619
+EGGS,91746150,"Easter egg, candy coated chocolate (Includes Cadbury's Mini Eggs)",0.4151515151515151
+HORSE MEAT,20000000,"Meat, NFS",0.41388888888888886
+HINNY MEAT,20000000,"Meat, NFS",0.41388888888888886
+LAMB BONE FREE MEAT*,77316600,Eggplant and meat casserole (Includes Moussaka made with lamb or beef),0.41261494252873565
+HAZELNUT SHELLED,42110000,"Mixed nuts, NFS",0.4033333333333333
+FRESH SHOULDERS WITH BONE,72125217,"Spinach, fresh, cooked with oil",0.3986111111111111
+GOOSEBERRY,53303500,"Pie, berry, not blackberry, blueberry, boysenberry, huckleberry, raspberry, or strawberry; two crust (Includes cranberry; Juneberry; gooseberry; berry pie, NS as to berry)",0.39763630633469904
+DATES,62101050,"Fruit mixture, dried (Includes apples, apricots, dates, papaya, peaches, pears, pineapples, prunes, raisins; fruit, dried, NFS)",0.3969491525423729
+FRESH HAM WITH BONE,72125217,"Spinach, fresh, cooked with oil",0.3958333333333333
+RYE FLOUR,51420000,"Roll, rye",0.39558823529411763
+BLACK CARP,41203030,Black bean salad,0.3951923076923077
+OAT FLAKES,57602500,"Oat bran, uncooked",0.39120370370370366
+MAIZE FLOUR & MEAL,58160420,"Rice, white, with corn, fat added (Includes peppers and/or onions)",0.3892592592592593
+YEAST COMPRESSED*,75236000,Yeast (Includes brewers yeast),0.38749999999999996
+BEAN (fresh),58105105,"Pupusa, bean-filled",0.38749999999999996
+VANILLA BEAN,41203030,Black bean salad,0.38749999999999996
+FABA BEAN,41203030,Black bean salad,0.38349999999999995
+OAT GROATS,57602500,"Oat bran, uncooked",0.3763888888888889
+OAT MEAL,57602500,"Oat bran, uncooked",0.3675
+PEPPERMINT,91707010,"Fondant, chocolate covered (Includes chocolate covered boxed candy; homemade mints, chocolate-covered; Cadbury's creme egg; Butter creams; Cherries, chocolate covered; Chocolate Jots; Easter egg, chocolate covered creme; Irish Cream Mints; Mints (Brach's); Mint Jots; Peppermint Pattie; Thin Mints; Junior Mints)",0.36607142857142855
+SHEEP BONE FREE MEAT*,77316600,Eggplant and meat casserole (Includes Moussaka made with lamb or beef),0.36528409090909086
+CURED HAM WITH BONE,27120020,Ham or pork with gravy,0.3628048780487805
+PEPPER (PIPER SPP.),27416150,Pepper steak,0.34345238095238095
+CURED HAM BONE FREE,22321110,"Ham, smoked or cured, ground patty",0.34240196078431373
+HOP CONE,13120740,"Ice cream cone, NFS",0.34192307692307694
+RED DRUM,75122200,"Pepper, sweet, red, raw",0.33642857142857147
+CASSAVA FLOUR,51000200,"Roll, NS as to major flour",0.33402255639097744
+PESTO WITHOUT GARLIC,81302070,Pesto sauce,0.3323924731182796
+BARLEY FLAKES,57135000,Cereal (Kellogg's Corn Flakes),0.3270905923344948
+PIGEON PEA,41602030,Split pea and ham soup,0.325
+MAJOR CARP,51000200,"Roll, NS as to major flour",0.3192857142857143
+CHILLY FRESH,75214027,"Cauliflower, fresh, cooked with oil",0.3192857142857143
+CAKES AND CROISSANT**,54319020,Popcorn cake (Includes puffed corn and rice cake; Quaker Caramel Corn Cake; Quaker Popped Kettle Corn popcorn cakes),0.30860050890585244
+GUINEA BONE FREE MEAT,28501010,"Gravy, beef, fat free (Includes brown; meat; mushroom; reduced fat or sodium)",0.3052197802197802
+GOOSE BONE FREE MEAT,28501010,"Gravy, beef, fat free (Includes brown; meat; mushroom; reduced fat or sodium)",0.3015079365079365
+SIMPLE COOKIES**,53803100,"Cookie, baby food (Includes Gerber animal-shaped cookies)",0.3014705882352941
+GOAT BONE FREE MEAT*,28501010,"Gravy, beef, fat free (Includes brown; meat; mushroom; reduced fat or sodium)",0.2977126805778491
+DUCK BONE FREE MEAT,28501010,"Gravy, beef, fat free (Includes brown; meat; mushroom; reduced fat or sodium)",0.2977126805778491
+HOP EXTRACT,75236500,Yeast extract spread (Includes Vegemite; Marmite; Promite),0.2804807692307692
+WUCHANG BREAM,26105160,"Carp, steamed or poached (Includes bream; buffalofish; sucker)",0.2764285714285714
+CANE MOLASSE,91300100,Pancake syrup (Includes cane; buttered blends; maple; maple cream),0.2743150684931507
+PRAWNS GIANT,21602100,Beef jerky (Includes Slim Jim; Big Jerk; Super Jerk; Giant Jerk),0.26097951344430215
+CURED SHOULDERS WITH BONE,58104160,Nachos with chili,0.2577380952380952
+POPPY SEED,43103300,Tahini (Includes sesame seed butter; sesame seed paste),0.257258064516129
+GRASS CARP,26105160,"Carp, steamed or poached (Includes bream; buffalofish; sucker)",0.24888059701492535
+TAPIOCA OF CASSAVA,72307000,Spinach soup (Includes cream of spinach soup; escarole soup),0.23691666666666666
+EGGS SHELLED,91746150,"Easter egg, candy coated chocolate (Includes Cadbury's Mini Eggs)",0.23412162162162162
+MANIOC (CASSAVA) STARCH,28150510,"Fish in lemon-butter sauce with starch item, vegetable, frozen meal",0.20060562015503874
+BRUSSEL SPROUT,75102750,"Brussels sprouts, raw",0.16470588235294117
+COCONUTS,82101500,Coconut oil,0.14736842105263157
+CURRANT,62108100,"Currants, dried",0.13333333333333333
+SAUSAGES,27120120,Sausage gravy,0.13333333333333333
+MULBERRY,53440300,"Strudel, berry",0.13333333333333333
+HORSE OFFAL,14630200,Cheese souffle,0.128
+SILVERBARB,91715100,SNICKERS Bar,0.1272727272727273
+BRASSICAS,62125100,Raisins,0.125
+STRACCHINO,72124100,"Radicchio, raw",0.12173913043478263
+RAPESEED,43103000,Sesame seeds,0.12
+HEMPSEED,43103000,Sesame seeds,0.12
+CRUSTACEAN,13210300,Custard,0.11764705882352942
+LINSEED,43104000,Flax seeds,0.11764705882352942
+FRUCTOSE,63100100,"Fruit, NFS",0.11764705882352942
+GRAN MORAVIA,93301510,Frozen margarita,0.11428571428571428
+MANGOSTEEN,62114050,"Mango, dried",0.11428571428571428
+MACE,41420100,Miso sauce,0.11428571428571428
+MULE OFFAL,27510388,McDouble (McDonalds),0.11428571428571428
+CRISPBREAD**,81302040,Sandwich spread,0.11200000000000002
+LONGABERRY,75440600,Vegetable curry,0.11200000000000002
+CHESTNUT,14010000,"Cheese, NFS",0.11111111111111112
+MANIOC,63129030,"Mango, canned",0.11111111111111112
+SAFFRON,91102010,"Sugar, brown",0.11111111111111112
+QUORNE,91302010,Honey,0.10909090909090909
+MASCARPONE,63129030,"Mango, canned",0.10909090909090909
+HINNY OFFAL,72125240,Spinach souffle,0.1076923076923077
+BADIAN,52403000,"Bread, nut",0.10666666666666667
+CARDAMOM,13210300,Custard,0.10666666666666667
+TANGERIN,62114050,"Mango, dried",0.10526315789473684
+SEABASS,43103000,Sesame seeds,0.10526315789473684
+COWPEA,53410800,"Cobbler, peach",0.10526315789473684
+SORGHUM,28355440,Shrimp gumbo,0.10526315789473684
+PANGASIID,42111030,"Peanuts, boiled",0.10434782608695653
+ASS OFFAL,14630200,Cheese souffle,0.10434782608695653
+ANISE,62114050,"Mango, dried",0.1
+PARMIGIANO REGGIANO,41208030,Pork and beans,0.09696969696969698
+GILSTHEAD SEABREAM,26315130,"Oysters, steamed",0.09696969696969698
+MEALWORMS*,20000000,"Meat, NFS",0.09411764705882353
+CABAGGE,23150250,"Goat, baked",0.09411764705882353
+NUTMEG,64401000,Vinegar,0.09230769230769231
+SHALLOT,91703400,Whatchamacallit,0.09090909090909091
+CLOVE,91703070,Rolo,0.08888888888888889
+CHILLY,14104200,"Cheese, Colby",0.08888888888888889
+KEPHIR,72119190,"Kale, raw",0.08571428571428572
