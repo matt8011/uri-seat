@@ -1,18 +1,14 @@
-# Harvest Index
+# URI Sustainable Eating Assessment Tool
 
-Public food catalog with protected admin CRUD backed by SQLite.
+A tool to calculate sustainability of URI dining hall food items.
 
 ## Run
 
-```bash
-PORT=3000 \
-GOOGLE_CLIENT_ID=your-google-oauth-client-id \
-SESSION_SECRET=replace-this-secret \
-ADMIN_EMAILS=admin1@example.com,admin2@example.com \
-npm start
-```
-
-Open `http://localhost:3000`.
+1. Make sure the admin user Gmails are set in `start.sh` as a comma-separated string
+2. Create and add Google Client ID variable to `start.sh`
+3. Assign a session secret that cannot be guessed (recommendation: `openssl rand -base64 32`)
+4. Execute the server with `./start.sh`
+5. Open `http://localhost:3000` in your web browser
 
 ## Environment variables
 
