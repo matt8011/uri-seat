@@ -1,0 +1,10 @@
+{
+  "name": "food-app",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "sqlite": "^5.1.1"
+  }
+}

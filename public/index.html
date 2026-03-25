@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Harvest Index</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="#top">
+        <span class="brand-mark">HI</span>
+        <span>
+          <strong>Harvest Index</strong>
+          <small>Food impact and recipe search</small>
+        </span>
+      </a>
+      <nav class="topbar-actions">
+        <button id="signInButton" class="button button-secondary" type="button">Admin sign in</button>
+        <button id="signOutButton" class="button button-ghost hidden" type="button">Sign out</button>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Food Intelligence Catalog</p>
+          <h1>Search ingredients and recipe tags by sustainability, cost, and nutrition.</h1>
+          <p class="hero-text">
+            Browse the full catalog without an account. Google-authenticated admins can maintain the dataset,
+            update scores, and manage recipe tags from the same interface.
+          </p>
+          <form id="searchForm" class="searchbar">
+            <label class="sr-only" for="searchInput">Search food item or recipe</label>
+            <input id="searchInput" name="q" type="search" placeholder="Search avocado, lentil soup, summer salad..." autocomplete="off">
+            <button class="button button-primary" type="submit">Search</button>
+          </form>
+          <p id="searchSummary" class="search-summary">Loading catalog...</p>
+        </div>
+        <aside class="hero-panel">
+          <div class="hero-metric">
+            <span>Public access</span>
+            <strong>Search by food item or tagged recipe</strong>
+          </div>
+          <div class="hero-metric">
+            <span>Admin workflow</span>
+            <strong>Google sign-in with protected create, edit, and delete actions</strong>
+          </div>
+          <div class="hero-metric">
+            <span>Scores tracked</span>
+            <strong>Nutrition, affordability, biodiversity, land, water, carbon, and composite</strong>
+          </div>
+        </aside>
+      </section>
+
+      <section class="content-grid">
+        <div class="catalog-column">
+          <section class="panel panel-catalog">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Catalog</p>
+                <h2>Food entries</h2>
+              </div>
+              <p class="panel-meta">Open to all visitors</p>
+            </div>
+            <div id="resultsGrid" class="results-grid"></div>
+            <p id="emptyState" class="empty-state hidden">No items matched that search.</p>
+          </section>
+        </div>
+
+        <aside class="sidebar-column">
+          <section class="panel detail-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Detail</p>
+                <h2 id="detailTitle">Select an entry</h2>
+              </div>
+            </div>
+            <div id="detailContent" class="detail-content">
+              <p>Choose a card to inspect its score profile and tagged recipes.</p>
+            </div>
+          </section>
+
+          <section class="panel auth-panel">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Access</p>
+                <h2>Admin workspace</h2>
+              </div>
+            </div>
+            <div id="authStatus" class="auth-status">Checking session...</div>
+            <div id="googleMount" class="google-mount hidden"></div>
+            <p id="authHint" class="auth-hint"></p>
+          </section>
+        </aside>
+      </section>
+
+      <section id="adminSection" class="admin-section hidden">
+        <div class="panel admin-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Admin</p>
+              <h2>Manage catalog entries</h2>
+            </div>
+            <p class="panel-meta">Protected CRUD actions</p>
+          </div>
+
+          <form id="entryForm" class="entry-form">
+            <input type="hidden" id="entryId">
+            <div class="form-grid">
+              <label>
+                <span>Food item</span>
+                <input id="name" type="text" required>
+              </label>
+              <label>
+                <span>Food code</span>
+                <input id="code" type="number" required>
+              </label>
+              <label>
+                <span>Composite score</span>
+                <input id="composite_score" type="number" step="0.01">
+              </label>
+              <label>
+                <span>Nutrition score</span>
+                <input id="nutrition_score" type="number" step="0.01">
+              </label>
+              <label>
+                <span>Affordability score</span>
+                <input id="affordability_score" type="number" step="0.01">
+              </label>
+              <label>
+                <span>Biodiversity score</span>
+                <input id="biodiversity_score" type="number" step="0.01">
+              </label>
+              <label>
+                <span>Land use score</span>
+                <input id="land_score" type="number" step="0.01">
+              </label>
+              <label>
+                <span>Water use score</span>
+                <input id="water_score" type="number" step="0.01">
+              </label>
+              <label>
+                <span>Carbon footprint score</span>
+                <input id="carbon_score" type="number" step="0.01">
+              </label>
+            </div>
+            <label class="form-full">
+              <span>Tagged recipes</span>
+              <input id="tagged_recipes" type="text" placeholder="Comma-separated recipe tags">
+            </label>
+            <div class="form-actions">
+              <button class="button button-primary" type="submit">Save entry</button>
+              <button id="cancelEdit" class="button button-ghost hidden" type="button">Cancel edit</button>
+            </div>
+          </form>
+
+          <div id="adminMessage" class="admin-message"></div>
+
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Food item</th>
+                  <th>Code</th>
+                  <th>Composite</th>
+                  <th>Tagged recipes</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
