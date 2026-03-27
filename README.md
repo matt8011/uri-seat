@@ -32,9 +32,10 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 - Admin-only actions now live on the separate `/admin` page
 - The current food schema is centered on general details, nutrition fields, and environmental classification
 - `nutrient_rich_food_index` and `nutrition_composite_score` are now calculated automatically from the nutrition fields, with the full NRFI formula multiplied by `100`
+- `environmental_composite_score` is now calculated automatically from the selected food classification using the static workbook mapping
 - The server verifies Google sign-in credentials against Google's `tokeninfo` endpoint, so outbound network access is required for login
 - The app still depends on the `sqlite3` CLI being available on the host machine
 
 ## API Docs
 
-See `api.md` for the current endpoints and CSV import format.
+See `docs/api.md` for the current endpoints and CSV import format.

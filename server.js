@@ -39,6 +39,8 @@ const FOOD_CLASSIFICATIONS = [
   'Soymilk',
   'Tofu',
   'Soybean Oil',
+  'Palm Oil',
+  'Sunflower Oil',
   'Rapeseed Oil',
   'Olive Oil',
   'Tomatoes',
@@ -65,6 +67,49 @@ const FOOD_CLASSIFICATIONS = [
   'Fish (farmed)',
   'Crustaceans (farmed)'
 ];
+const ENVIRONMENTAL_COMPOSITE_SCORES = {
+  'Wheat & Rye (Bread)': 2.833333333,
+  'Maize (Meal)': 4,
+  'Barley (Beer)': 5,
+  Oatmeal: 2.5,
+  Rice: 1.833333333,
+  Potatoes: 5,
+  Cassava: 5,
+  'Cane Sugar': 2.666666667,
+  'Beet Sugar': 4.166666667,
+  'Other Pulses': 2.166666667,
+  Peas: 3.166666667,
+  Nuts: 2,
+  Groundnuts: 2.166666667,
+  Soymilk: 5,
+  Tofu: 4.333333333,
+  'Soybean Oil': 2.166666667,
+  'Rapeseed Oil': 2.5,
+  'Olive Oil': 1.166666667,
+  Tomatoes: 4,
+  'Onions & Leeks': 5,
+  'Root Vegetables': 5,
+  Brassicas: 4.833333333,
+  'Other Vegetables': 5,
+  'Citrus Fruit': 5,
+  Bananas: 5,
+  Apples: 4.333333333,
+  'Berries & Grapes': 3.333333333,
+  Wine: 4.666666667,
+  'Other Fruit': 4.666666667,
+  Coffee: 2.333333333,
+  'Dark Chocolate': 1.833333333,
+  'Bovine Meat (beef herd)': 1,
+  'Bovine Meat (dairy herd)': 1,
+  'Lamb & Mutton': 1,
+  'Pig Meat': 1,
+  'Poultry Meat': 1.333333333,
+  Milk: 2.166666667,
+  Cheese: 1,
+  Eggs: 1.666666667,
+  'Fish (farmed)': 1.166666667,
+  'Crustaceans (farmed)': 1.5
+};
 const FOOD_COLUMNS = [
   'id',
   'name',
@@ -427,6 +472,15 @@ function calculateNutritionCompositeScore(index) {
   return 5;
 }
 
+function calculateEnvironmentalCompositeScore(classification) {
+  if (!classification) {
+    return null;
+  }
+
+  const value = ENVIRONMENTAL_COMPOSITE_SCORES[classification];
+  return value === undefined ? null : roundMetric(value);
+}
+
 function withCalculatedNutrition(item) {
   const nutrientRichFoodIndex = calculateNutrientRichFoodIndex(item);
 
@@ -434,6 +488,13 @@ function withCalculatedNutrition(item) {
     ...item,
     nutrient_rich_food_index: nutrientRichFoodIndex,
     nutrition_composite_score: calculateNutritionCompositeScore(nutrientRichFoodIndex)
+  };
+}
+
+function withCalculatedFields(item) {
+  return {
+    ...withCalculatedNutrition(item),
+    environmental_composite_score: calculateEnvironmentalCompositeScore(item.food_classification)
   };
 }
 
@@ -487,7 +548,7 @@ function validateFoodPayload(body) {
   }
 
   return {
-    value: withCalculatedNutrition({
+    value: withCalculatedFields({
       name,
       sustainability_index: null,
       tagged_recipes: normalizeRecipes(body.tagged_recipes),
@@ -515,11 +576,12 @@ async function backfillCalculatedNutritionScores() {
   const rows = await allSql('SELECT * FROM food_entries ORDER BY id ASC;');
 
   for (const row of rows) {
-    const item = withCalculatedNutrition(deserializeRow(row));
+    const item = withCalculatedFields(deserializeRow(row));
     await runSql(`
       UPDATE food_entries
       SET nutrient_rich_food_index = ${sqlValue(item.nutrient_rich_food_index)},
-          nutrition_composite_score = ${sqlValue(item.nutrition_composite_score)}
+          nutrition_composite_score = ${sqlValue(item.nutrition_composite_score)},
+          environmental_composite_score = ${sqlValue(item.environmental_composite_score)}
       WHERE id = ${sqlValue(item.id)};
     `);
   }

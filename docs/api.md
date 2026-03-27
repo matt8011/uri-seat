@@ -134,7 +134,8 @@ Request body:
 Notes:
 
 - `nutrient_rich_food_index` and `nutrition_composite_score` are calculated automatically by the server
-- `sustainability_index` and `environmental_composite_score` still exist in the schema but are not currently editable through the API payload
+- `environmental_composite_score` is also calculated automatically by the server from `food_classification`
+- `sustainability_index` still exists in the schema but is not currently editable through the API payload
 
 ### `PUT /api/items/:id`
 
@@ -213,6 +214,8 @@ The Nutrition Composite Score is then assigned from the Nutrient Rich Food Index
 - `4` when `18.2 < ind <= 30.5`
 - `5` when `ind > 30.5`
 
+The Environmental Composite Score is assigned by a static server-side mapping from `food_classification` using the workbook data from the `environmental-ind` sheet.
+
 Responses currently include:
 
 ```json
@@ -235,9 +238,9 @@ Responses currently include:
   "saturated_fat": 0.8,
   "added_sugar": 1.2,
   "sodium": 430,
-  "nutrient_rich_food_index": null,
-  "nutrition_composite_score": null,
+  "nutrient_rich_food_index": 53.12,
+  "nutrition_composite_score": 5,
   "food_classification": "Tofu",
-  "environmental_composite_score": null
+  "environmental_composite_score": 4.3333
 }
 ```
