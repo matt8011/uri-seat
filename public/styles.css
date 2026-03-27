@@ -1,7 +1,6 @@
 :root {
   --bg: #f4efe5;
-  --bg-accent: #efe5d0;
-  --surface: rgba(255, 251, 244, 0.84);
+  --surface: rgba(255, 251, 244, 0.86);
   --surface-strong: #fffdf8;
   --text: #243127;
   --muted: #647063;
@@ -9,7 +8,7 @@
   --primary: #244f38;
   --primary-strong: #173926;
   --accent: #cb7c4c;
-  --accent-soft: #e8c9b5;
+  --danger: #a93d30;
   --shadow: 0 24px 60px rgba(32, 38, 32, 0.12);
   --radius-lg: 28px;
   --radius-md: 18px;
@@ -26,24 +25,24 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Manrope', sans-serif;
+  min-height: 100vh;
   color: var(--text);
+  font-family: 'Manrope', sans-serif;
   background:
     radial-gradient(circle at top left, rgba(203, 124, 76, 0.18), transparent 34%),
     radial-gradient(circle at top right, rgba(36, 79, 56, 0.18), transparent 30%),
     linear-gradient(180deg, #f7f1e7 0%, #f1eadb 100%);
-  min-height: 100vh;
 }
 
 body::before {
   content: '';
   position: fixed;
   inset: 0;
+  pointer-events: none;
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
   background-size: 44px 44px;
-  pointer-events: none;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 92%);
 }
 
@@ -74,6 +73,21 @@ body::before {
   z-index: 20;
 }
 
+.topbar-note {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.76rem;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -84,7 +98,8 @@ body::before {
 
 .brand strong,
 .hero h1,
-.panel h2 {
+.panel h2,
+.section-heading h3 {
   font-family: 'Fraunces', serif;
 }
 
@@ -111,15 +126,9 @@ body::before {
   letter-spacing: 0.06em;
 }
 
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.85fr);
   gap: 24px;
   margin-top: 24px;
   padding: 36px;
@@ -129,6 +138,10 @@ body::before {
     linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(250, 243, 231, 0.78)),
     linear-gradient(150deg, rgba(203, 124, 76, 0.06), transparent 45%);
   box-shadow: var(--shadow);
+}
+
+.hero-public {
+  margin-bottom: 24px;
 }
 
 .eyebrow,
@@ -147,18 +160,27 @@ body::before {
   font-weight: 700;
 }
 
+.panel-meta,
+.search-summary {
+  color: var(--muted);
+}
+
 .hero h1 {
   margin: 8px 0 16px;
   font-size: clamp(2.4rem, 5vw, 4.8rem);
   line-height: 0.96;
-  max-width: 11ch;
+  max-width: 12ch;
 }
 
-.hero-text {
-  max-width: 64ch;
+.hero-text,
+.result-subtitle,
+.detail-copy,
+.auth-hint,
+.admin-message,
+.hint-copy,
+.section-heading p {
   color: var(--muted);
-  line-height: 1.65;
-  font-size: 1.02rem;
+  line-height: 1.6;
 }
 
 .searchbar {
@@ -168,7 +190,9 @@ body::before {
 }
 
 .searchbar input,
-.entry-form input {
+.entry-form input,
+.entry-form select,
+.file-picker input {
   width: 100%;
   border: 1px solid rgba(36, 49, 39, 0.14);
   background: rgba(255, 255, 255, 0.82);
@@ -180,11 +204,18 @@ body::before {
 }
 
 .searchbar input:focus,
-.entry-form input:focus {
+.entry-form input:focus,
+.entry-form select:focus,
+.file-picker input:focus {
   outline: none;
   border-color: rgba(36, 79, 56, 0.55);
   transform: translateY(-1px);
   box-shadow: 0 0 0 4px rgba(36, 79, 56, 0.1);
+}
+
+input[readonly] {
+  background: rgba(244, 239, 229, 0.9);
+  color: var(--muted);
 }
 
 .hero-panel {
@@ -207,11 +238,15 @@ body::before {
   font-size: 1rem;
 }
 
-.content-grid {
+.content-grid,
+.admin-layout,
+.admin-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
   gap: 24px;
-  margin-top: 24px;
+}
+
+.content-grid {
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.85fr);
 }
 
 .panel {
@@ -229,15 +264,24 @@ body::before {
   margin-bottom: 22px;
 }
 
-.panel h2 {
+.panel h2,
+.section-heading h3 {
   margin: 6px 0 0;
+}
+
+.panel h2 {
   font-size: 1.9rem;
+}
+
+.section-heading h3 {
+  font-size: 1.35rem;
 }
 
 .panel-catalog,
 .detail-panel,
 .auth-panel,
-.admin-panel {
+.admin-panel,
+.import-panel {
   padding: 26px;
 }
 
@@ -266,7 +310,9 @@ body::before {
 .card-tags,
 .detail-tags,
 .score-grid,
-.form-actions {
+.form-actions,
+.table-actions,
+.import-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -275,14 +321,6 @@ body::before {
 .result-title {
   margin: 10px 0 8px;
   font-size: 1.35rem;
-}
-
-.result-subtitle,
-.detail-copy,
-.auth-hint,
-.admin-message {
-  color: var(--muted);
-  line-height: 1.6;
 }
 
 .pill,
@@ -347,13 +385,22 @@ body::before {
   margin-bottom: 14px;
 }
 
-.admin-section {
-  margin-top: 24px;
-}
-
-.entry-form {
+.entry-form,
+.form-section {
   display: grid;
   gap: 18px;
+}
+
+.form-section {
+  padding: 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(36, 49, 39, 0.08);
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.section-heading p,
+.hint-copy {
+  margin: 8px 0 0;
 }
 
 .form-grid {
@@ -362,18 +409,32 @@ body::before {
   gap: 16px;
 }
 
-.entry-form label {
+.form-grid-span-2 {
+  grid-column: span 2;
+}
+
+.entry-form label,
+.file-picker {
   display: grid;
   gap: 8px;
   font-weight: 600;
 }
 
-.entry-form span {
+.entry-form span,
+.file-picker span {
   font-size: 0.95rem;
 }
 
-.form-full {
-  width: 100%;
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.checkbox-row input {
+  width: 18px;
+  height: 18px;
 }
 
 .admin-message {
@@ -408,12 +469,6 @@ body::before {
   color: var(--muted);
 }
 
-.table-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .button {
   appearance: none;
   border: 0;
@@ -423,6 +478,7 @@ body::before {
   font-weight: 700;
   cursor: pointer;
   transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+  text-decoration: none;
 }
 
 .button:hover {
@@ -452,7 +508,7 @@ body::before {
 
 .button-danger {
   background: rgba(169, 61, 48, 0.1);
-  color: #a93d30;
+  color: var(--danger);
 }
 
 .empty-state {
@@ -509,7 +565,8 @@ body::before {
   .panel-catalog,
   .detail-panel,
   .auth-panel,
-  .admin-panel {
+  .admin-panel,
+  .import-panel {
     padding: 20px;
   }
 
@@ -518,12 +575,12 @@ body::before {
     font-size: clamp(2.2rem, 10vw, 3.4rem);
   }
 
-  .form-grid,
-  .score-grid {
+  .score-grid,
+  .form-grid {
     grid-template-columns: 1fr;
   }
 
-  .panel-header {
-    flex-direction: column;
+  .form-grid-span-2 {
+    grid-column: span 1;
   }
 }

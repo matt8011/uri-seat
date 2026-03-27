@@ -21,6 +21,74 @@ const DB_PATH = path.join(__dirname, 'data.sqlite');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const SESSION_COOKIE = 'food_app_session';
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 14;
+const MAX_ITEMS = 200;
+const FOOD_CLASSIFICATIONS = [
+  'Wheat & Rye (Bread)',
+  'Maize (Meal)',
+  'Barley (Beer)',
+  'Oatmeal',
+  'Rice',
+  'Potatoes',
+  'Cassava',
+  'Cane Sugar',
+  'Beet Sugar',
+  'Other Pulses',
+  'Peas',
+  'Nuts',
+  'Groundnuts',
+  'Soymilk',
+  'Tofu',
+  'Soybean Oil',
+  'Rapeseed Oil',
+  'Olive Oil',
+  'Tomatoes',
+  'Onions & Leeks',
+  'Root Vegetables',
+  'Brassicas',
+  'Other Vegetables',
+  'Citrus Fruit',
+  'Bananas',
+  'Apples',
+  'Berries & Grapes',
+  'Wine',
+  'Other Fruit',
+  'Coffee',
+  'Dark Chocolate',
+  'Bovine Meat (beef herd)',
+  'Bovine Meat (dairy herd)',
+  'Lamb & Mutton',
+  'Pig Meat',
+  'Poultry Meat',
+  'Milk',
+  'Cheese',
+  'Eggs',
+  'Fish (farmed)',
+  'Crustaceans (farmed)'
+];
+const FOOD_COLUMNS = [
+  'id',
+  'name',
+  'sustainability_index',
+  'tagged_recipes',
+  'created_at',
+  'updated_at',
+  'protein',
+  'fiber',
+  'vitamin_a',
+  'vitamin_c',
+  'vitamin_e',
+  'calcium',
+  'iron',
+  'magnesium',
+  'potassium',
+  'saturated_fat',
+  'added_sugar',
+  'sodium',
+  'nutrient_rich_food_index',
+  'nutrition_composite_score',
+  'food_classification',
+  'environmental_composite_score'
+];
 
 function sqlEscape(value) {
   return String(value).replaceAll("'", "''");
@@ -44,7 +112,7 @@ async function runSql(sql, jsonMode = false) {
   args.push(DB_PATH, sql);
 
   const { stdout } = await execFileAsync('sqlite3', args, {
-    maxBuffer: 1024 * 1024 * 10
+    maxBuffer: 1024 * 1024 * 20
   });
 
   if (!jsonMode) {
@@ -63,24 +131,64 @@ async function allSql(sql) {
   return runSql(sql, true);
 }
 
-async function initializeDatabase() {
-  await runSql(`
+function createFoodEntriesTableSql() {
+  return `
     CREATE TABLE IF NOT EXISTS food_entries (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
-      code INTEGER NOT NULL,
-      carbon_score REAL,
-      land_score REAL,
-      water_score REAL,
-      nutrition_score REAL,
-      biodiversity_score REAL,
-      affordability_score REAL,
-      composite_score REAL,
+      sustainability_index REAL,
       tagged_recipes TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      protein REAL,
+      fiber REAL,
+      vitamin_a REAL,
+      vitamin_c REAL,
+      vitamin_e REAL,
+      calcium REAL,
+      iron REAL,
+      magnesium REAL,
+      potassium REAL,
+      saturated_fat REAL,
+      added_sugar REAL,
+      sodium REAL,
+      nutrient_rich_food_index REAL,
+      nutrition_composite_score REAL,
+      food_classification TEXT NOT NULL,
+      environmental_composite_score REAL
     );
 
+    CREATE INDEX IF NOT EXISTS idx_food_entries_name ON food_entries(name);
+    CREATE INDEX IF NOT EXISTS idx_food_entries_food_classification
+      ON food_entries(food_classification);
+  `;
+}
+
+async function ensureFoodEntriesSchema() {
+  const table = await getSql(`
+    SELECT name
+    FROM sqlite_master
+    WHERE type = 'table' AND name = 'food_entries'
+    LIMIT 1;
+  `);
+
+  if (table) {
+    const columns = await allSql('PRAGMA table_info(food_entries);');
+    const actualColumns = columns.map((column) => String(column.name));
+    const hasExpectedColumns =
+      actualColumns.length === FOOD_COLUMNS.length &&
+      FOOD_COLUMNS.every((name, index) => actualColumns[index] === name);
+
+    if (!hasExpectedColumns) {
+      await runSql('DROP TABLE IF EXISTS food_entries;');
+    }
+  }
+
+  await runSql(createFoodEntriesTableSql());
+}
+
+async function initializeDatabase() {
+  await runSql(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       google_sub TEXT NOT NULL UNIQUE,
@@ -100,10 +208,11 @@ async function initializeDatabase() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
-    CREATE INDEX IF NOT EXISTS idx_food_entries_name ON food_entries(name);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
   `);
+
+  await ensureFoodEntriesSchema();
 }
 
 function parseJsonBody(req) {
@@ -123,6 +232,21 @@ function parseJsonBody(req) {
         reject(error);
       }
     });
+    req.on('error', reject);
+  });
+}
+
+function parseTextBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', (chunk) => {
+      data += chunk;
+      if (data.length > 5e6) {
+        reject(new Error('Request body too large'));
+        req.destroy();
+      }
+    });
+    req.on('end', () => resolve(data));
     req.on('error', reject);
   });
 }
@@ -227,89 +351,208 @@ function serializeUser(user) {
   };
 }
 
+function normalizeNumber(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeRecipes(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((recipe) => String(recipe || '').trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map((recipe) => recipe.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeClassification(value) {
+  const classification = String(value || '').trim();
+  return FOOD_CLASSIFICATIONS.includes(classification) ? classification : '';
+}
+
 function deserializeRow(row) {
   if (!row) {
     return null;
   }
 
   return {
-    ...row,
     id: Number(row.id),
-    code: Number(row.code),
-    carbon_score: row.carbon_score === null ? null : Number(row.carbon_score),
-    land_score: row.land_score === null ? null : Number(row.land_score),
-    water_score: row.water_score === null ? null : Number(row.water_score),
-    nutrition_score: row.nutrition_score === null ? null : Number(row.nutrition_score),
-    biodiversity_score: row.biodiversity_score === null ? null : Number(row.biodiversity_score),
-    affordability_score: row.affordability_score === null ? null : Number(row.affordability_score),
-    composite_score: row.composite_score === null ? null : Number(row.composite_score),
-    tagged_recipes: row.tagged_recipes ? JSON.parse(row.tagged_recipes) : []
+    name: row.name,
+    sustainability_index:
+      row.sustainability_index === null ? null : Number(row.sustainability_index),
+    tagged_recipes: row.tagged_recipes ? JSON.parse(row.tagged_recipes) : [],
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    protein: row.protein === null ? null : Number(row.protein),
+    fiber: row.fiber === null ? null : Number(row.fiber),
+    vitamin_a: row.vitamin_a === null ? null : Number(row.vitamin_a),
+    vitamin_c: row.vitamin_c === null ? null : Number(row.vitamin_c),
+    vitamin_e: row.vitamin_e === null ? null : Number(row.vitamin_e),
+    calcium: row.calcium === null ? null : Number(row.calcium),
+    iron: row.iron === null ? null : Number(row.iron),
+    magnesium: row.magnesium === null ? null : Number(row.magnesium),
+    potassium: row.potassium === null ? null : Number(row.potassium),
+    saturated_fat: row.saturated_fat === null ? null : Number(row.saturated_fat),
+    added_sugar: row.added_sugar === null ? null : Number(row.added_sugar),
+    sodium: row.sodium === null ? null : Number(row.sodium),
+    nutrient_rich_food_index:
+      row.nutrient_rich_food_index === null ? null : Number(row.nutrient_rich_food_index),
+    nutrition_composite_score:
+      row.nutrition_composite_score === null ? null : Number(row.nutrition_composite_score),
+    food_classification: row.food_classification,
+    environmental_composite_score:
+      row.environmental_composite_score === null
+        ? null
+        : Number(row.environmental_composite_score)
   };
-}
-
-function normalizeRecipes(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((recipe) => String(recipe || '').trim())
-    .filter(Boolean);
-}
-
-function normalizeNumber(value) {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function validateFoodPayload(body) {
   const name = String(body.name || '').trim();
-  const code = normalizeNumber(body.code);
+  const foodClassification = normalizeClassification(body.food_classification);
 
   if (!name) {
     return { error: 'Food item name is required.' };
   }
-  if (code === null) {
-    return { error: 'Food item code is required.' };
+
+  if (!foodClassification) {
+    return { error: 'A valid food classification is required.' };
   }
 
   return {
     value: {
       name,
-      code,
-      carbon_score: normalizeNumber(body.carbon_score),
-      land_score: normalizeNumber(body.land_score),
-      water_score: normalizeNumber(body.water_score),
-      nutrition_score: normalizeNumber(body.nutrition_score),
-      biodiversity_score: normalizeNumber(body.biodiversity_score),
-      affordability_score: normalizeNumber(body.affordability_score),
-      composite_score: normalizeNumber(body.composite_score),
-      tagged_recipes: normalizeRecipes(body.tagged_recipes)
+      sustainability_index: null,
+      tagged_recipes: normalizeRecipes(body.tagged_recipes),
+      protein: normalizeNumber(body.protein),
+      fiber: normalizeNumber(body.fiber),
+      vitamin_a: normalizeNumber(body.vitamin_a),
+      vitamin_c: normalizeNumber(body.vitamin_c),
+      vitamin_e: normalizeNumber(body.vitamin_e),
+      calcium: normalizeNumber(body.calcium),
+      iron: normalizeNumber(body.iron),
+      magnesium: normalizeNumber(body.magnesium),
+      potassium: normalizeNumber(body.potassium),
+      saturated_fat: normalizeNumber(body.saturated_fat),
+      added_sugar: normalizeNumber(body.added_sugar),
+      sodium: normalizeNumber(body.sodium),
+      nutrient_rich_food_index: null,
+      nutrition_composite_score: null,
+      food_classification: foodClassification,
+      environmental_composite_score: null
     }
   };
+}
+
+function foodInsertSql(item, timestamp, explicitCreatedAt = null) {
+  const createdAt = explicitCreatedAt || timestamp;
+
+  return `
+    INSERT INTO food_entries (
+      name,
+      sustainability_index,
+      tagged_recipes,
+      created_at,
+      updated_at,
+      protein,
+      fiber,
+      vitamin_a,
+      vitamin_c,
+      vitamin_e,
+      calcium,
+      iron,
+      magnesium,
+      potassium,
+      saturated_fat,
+      added_sugar,
+      sodium,
+      nutrient_rich_food_index,
+      nutrition_composite_score,
+      food_classification,
+      environmental_composite_score
+    ) VALUES (
+      ${sqlValue(item.name)},
+      ${sqlValue(item.sustainability_index)},
+      ${sqlValue(JSON.stringify(item.tagged_recipes))},
+      ${sqlValue(createdAt)},
+      ${sqlValue(timestamp)},
+      ${sqlValue(item.protein)},
+      ${sqlValue(item.fiber)},
+      ${sqlValue(item.vitamin_a)},
+      ${sqlValue(item.vitamin_c)},
+      ${sqlValue(item.vitamin_e)},
+      ${sqlValue(item.calcium)},
+      ${sqlValue(item.iron)},
+      ${sqlValue(item.magnesium)},
+      ${sqlValue(item.potassium)},
+      ${sqlValue(item.saturated_fat)},
+      ${sqlValue(item.added_sugar)},
+      ${sqlValue(item.sodium)},
+      ${sqlValue(item.nutrient_rich_food_index)},
+      ${sqlValue(item.nutrition_composite_score)},
+      ${sqlValue(item.food_classification)},
+      ${sqlValue(item.environmental_composite_score)}
+    );
+  `;
+}
+
+function foodUpdateSql(id, item, timestamp) {
+  return `
+    UPDATE food_entries
+    SET name = ${sqlValue(item.name)},
+        sustainability_index = ${sqlValue(item.sustainability_index)},
+        tagged_recipes = ${sqlValue(JSON.stringify(item.tagged_recipes))},
+        updated_at = ${sqlValue(timestamp)},
+        protein = ${sqlValue(item.protein)},
+        fiber = ${sqlValue(item.fiber)},
+        vitamin_a = ${sqlValue(item.vitamin_a)},
+        vitamin_c = ${sqlValue(item.vitamin_c)},
+        vitamin_e = ${sqlValue(item.vitamin_e)},
+        calcium = ${sqlValue(item.calcium)},
+        iron = ${sqlValue(item.iron)},
+        magnesium = ${sqlValue(item.magnesium)},
+        potassium = ${sqlValue(item.potassium)},
+        saturated_fat = ${sqlValue(item.saturated_fat)},
+        added_sugar = ${sqlValue(item.added_sugar)},
+        sodium = ${sqlValue(item.sodium)},
+        nutrient_rich_food_index = ${sqlValue(item.nutrient_rich_food_index)},
+        nutrition_composite_score = ${sqlValue(item.nutrition_composite_score)},
+        food_classification = ${sqlValue(item.food_classification)},
+        environmental_composite_score = ${sqlValue(item.environmental_composite_score)}
+    WHERE id = ${sqlValue(id)};
+  `;
 }
 
 async function queryItems(search = '') {
   const trimmed = search.trim().toLowerCase();
   const like = `%${trimmed}%`;
-
   const sql = trimmed
     ? `
         SELECT *
         FROM food_entries
         WHERE lower(name) LIKE ${sqlValue(like)}
-           OR CAST(code AS TEXT) LIKE ${sqlValue(like)}
            OR lower(tagged_recipes) LIKE ${sqlValue(like)}
+           OR lower(food_classification) LIKE ${sqlValue(like)}
         ORDER BY name COLLATE NOCASE ASC, id ASC
-        LIMIT 200;
+        LIMIT ${MAX_ITEMS};
       `
     : `
         SELECT *
         FROM food_entries
         ORDER BY name COLLATE NOCASE ASC, id ASC
-        LIMIT 200;
+        LIMIT ${MAX_ITEMS};
       `;
 
   const rows = await allSql(sql);
@@ -319,34 +562,6 @@ async function queryItems(search = '') {
 async function getItemById(id) {
   const row = await getSql(`SELECT * FROM food_entries WHERE id = ${sqlValue(id)} LIMIT 1;`);
   return deserializeRow(row);
-}
-
-function serveStatic(pathname, method, res) {
-  const relativePath = pathname === '/' ? '/index.html' : pathname;
-  const filePath = path.resolve(PUBLIC_DIR, `.${relativePath}`);
-
-  if (!filePath.startsWith(path.resolve(PUBLIC_DIR))) {
-    return false;
-  }
-  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-    return false;
-  }
-
-  const mimeTypes = {
-    '.html': 'text/html; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.js': 'application/javascript; charset=utf-8'
-  };
-
-  res.writeHead(200, {
-    'Content-Type': mimeTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream'
-  });
-  if (method === 'HEAD') {
-    res.end();
-    return true;
-  }
-  fs.createReadStream(filePath).pipe(res);
-  return true;
 }
 
 async function cleanupExpiredSessions() {
@@ -501,6 +716,225 @@ async function clearSession(req, res) {
   res.end();
 }
 
+function parseCsv(csvText) {
+  const rows = [];
+  let currentRow = [];
+  let currentField = '';
+  let inQuotes = false;
+  const text = String(csvText || '').replace(/^\uFEFF/, '');
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+
+    if (inQuotes) {
+      if (character === '"') {
+        if (text[index + 1] === '"') {
+          currentField += '"';
+          index += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        currentField += character;
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (character === ',') {
+      currentRow.push(currentField);
+      currentField = '';
+      continue;
+    }
+
+    if (character === '\n' || character === '\r') {
+      if (character === '\r' && text[index + 1] === '\n') {
+        index += 1;
+      }
+      currentRow.push(currentField);
+      if (currentRow.some((value) => String(value).trim() !== '')) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentField = '';
+      continue;
+    }
+
+    currentField += character;
+  }
+
+  currentRow.push(currentField);
+  if (currentRow.some((value) => String(value).trim() !== '')) {
+    rows.push(currentRow);
+  }
+
+  return rows;
+}
+
+function normalizeCsvHeader(header) {
+  return String(header || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function mapCsvRow(row, headers) {
+  const record = {};
+  headers.forEach((header, index) => {
+    record[header] = row[index] ?? '';
+  });
+  return record;
+}
+
+function getCsvValue(record, aliases) {
+  for (const alias of aliases) {
+    if (record[alias] !== undefined) {
+      return record[alias];
+    }
+  }
+  return '';
+}
+
+function csvRecordToPayload(record) {
+  return {
+    name: getCsvValue(record, ['name', 'food_item_name', 'food_name']),
+    tagged_recipes: getCsvValue(record, ['tagged_recipes', 'tagged_recipe', 'recipe_tags']),
+    protein: getCsvValue(record, ['protein']),
+    fiber: getCsvValue(record, ['fiber']),
+    vitamin_a: getCsvValue(record, ['vitamin_a']),
+    vitamin_c: getCsvValue(record, ['vitamin_c']),
+    vitamin_e: getCsvValue(record, ['vitamin_e']),
+    calcium: getCsvValue(record, ['calcium']),
+    iron: getCsvValue(record, ['iron']),
+    magnesium: getCsvValue(record, ['magnesium']),
+    potassium: getCsvValue(record, ['potassium']),
+    saturated_fat: getCsvValue(record, ['saturated_fat']),
+    added_sugar: getCsvValue(record, ['added_sugar']),
+    sodium: getCsvValue(record, ['sodium']),
+    food_classification: getCsvValue(record, ['food_classification', 'classification'])
+  };
+}
+
+function parseCsvRecords(csvText) {
+  const rows = parseCsv(csvText);
+
+  if (rows.length === 0) {
+    throw new Error('CSV payload did not contain any rows.');
+  }
+
+  const headers = rows[0].map(normalizeCsvHeader);
+
+  if (!headers.some(Boolean)) {
+    throw new Error('CSV header row is invalid.');
+  }
+
+  return rows.slice(1).map((row) => mapCsvRow(row, headers));
+}
+
+function serveStatic(pathname, method, res) {
+  const routeAliases = {
+    '/': '/index.html',
+    '/admin': '/admin.html',
+    '/admin/': '/admin.html'
+  };
+
+  const relativePath = routeAliases[pathname] || pathname;
+  const filePath = path.resolve(PUBLIC_DIR, `.${relativePath}`);
+
+  if (!filePath.startsWith(path.resolve(PUBLIC_DIR))) {
+    return false;
+  }
+
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+    return false;
+  }
+
+  const mimeTypes = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8'
+  };
+
+  res.writeHead(200, {
+    'Content-Type': mimeTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream'
+  });
+
+  if (method === 'HEAD') {
+    res.end();
+    return true;
+  }
+
+  fs.createReadStream(filePath).pipe(res);
+  return true;
+}
+
+async function handleCsvImport(req, res) {
+  if (!await requireAdmin(req, res)) {
+    return;
+  }
+
+  try {
+    const contentType = String(req.headers['content-type'] || '').toLowerCase();
+    let csvText = '';
+    let replaceExisting = false;
+
+    if (contentType.includes('application/json')) {
+      const body = await parseJsonBody(req);
+      csvText = String(body.csvText || '');
+      replaceExisting = Boolean(body.replaceExisting);
+    } else {
+      csvText = await parseTextBody(req);
+      replaceExisting = String(req.headers['x-replace-existing'] || '').toLowerCase() === 'true';
+    }
+
+    if (!csvText.trim()) {
+      return sendJson(res, 400, { error: 'CSV content is required.' });
+    }
+
+    const records = parseCsvRecords(csvText);
+
+    if (records.length === 0) {
+      return sendJson(res, 400, { error: 'CSV file only contained a header row.' });
+    }
+
+    const items = [];
+    for (let index = 0; index < records.length; index += 1) {
+      const payload = csvRecordToPayload(records[index]);
+      const validated = validateFoodPayload(payload);
+      if (validated.error) {
+        return sendJson(res, 400, {
+          error: `Row ${index + 2}: ${validated.error}`
+        });
+      }
+      items.push(validated.value);
+    }
+
+    const now = new Date().toISOString();
+    let sql = '';
+    if (replaceExisting) {
+      sql += 'DELETE FROM food_entries;';
+    }
+    sql += items.map((item) => foodInsertSql(item, now)).join('\n');
+
+    await runSql(sql);
+
+    return sendJson(res, 200, {
+      imported: items.length,
+      replacedExisting: replaceExisting
+    });
+  } catch (error) {
+    console.error(error);
+    return sendJson(res, 400, {
+      error: error.message || 'CSV import failed.'
+    });
+  }
+}
+
 async function handleApi(req, res, pathname, searchParams) {
   const method = req.method.toUpperCase();
 
@@ -515,6 +949,12 @@ async function handleApi(req, res, pathname, searchParams) {
   if (pathname === '/api/session' && method === 'GET') {
     return sendJson(res, 200, {
       user: await getCurrentUser(req)
+    });
+  }
+
+  if (pathname === '/api/meta' && method === 'GET') {
+    return sendJson(res, 200, {
+      classifications: FOOD_CLASSIFICATIONS
     });
   }
 
@@ -549,6 +989,10 @@ async function handleApi(req, res, pathname, searchParams) {
     return clearSession(req, res);
   }
 
+  if (pathname === '/api/items/import' && method === 'POST') {
+    return handleCsvImport(req, res);
+  }
+
   if (pathname === '/api/items' && method === 'GET') {
     const search = searchParams.get('q') || '';
     return sendJson(res, 200, {
@@ -580,29 +1024,10 @@ async function handleApi(req, res, pathname, searchParams) {
       if (validated.error) {
         return sendJson(res, 400, { error: validated.error });
       }
+
       const item = validated.value;
       const now = new Date().toISOString();
-
-      await runSql(`
-        INSERT INTO food_entries (
-          name, code, carbon_score, land_score, water_score,
-          nutrition_score, biodiversity_score, affordability_score,
-          composite_score, tagged_recipes, created_at, updated_at
-        ) VALUES (
-          ${sqlValue(item.name)},
-          ${sqlValue(item.code)},
-          ${sqlValue(item.carbon_score)},
-          ${sqlValue(item.land_score)},
-          ${sqlValue(item.water_score)},
-          ${sqlValue(item.nutrition_score)},
-          ${sqlValue(item.biodiversity_score)},
-          ${sqlValue(item.affordability_score)},
-          ${sqlValue(item.composite_score)},
-          ${sqlValue(JSON.stringify(item.tagged_recipes))},
-          ${sqlValue(now)},
-          ${sqlValue(now)}
-        );
-      `);
+      await runSql(foodInsertSql(item, now));
 
       const inserted = await getSql('SELECT * FROM food_entries ORDER BY id DESC LIMIT 1;');
       return sendJson(res, 201, deserializeRow(inserted));
@@ -622,7 +1047,9 @@ async function handleApi(req, res, pathname, searchParams) {
       if (!Number.isInteger(id)) {
         return sendJson(res, 400, { error: 'Invalid item id.' });
       }
-      if (!await getItemById(id)) {
+
+      const existing = await getItemById(id);
+      if (!existing) {
         return sendJson(res, 404, { error: 'Food item not found.' });
       }
 
@@ -631,24 +1058,8 @@ async function handleApi(req, res, pathname, searchParams) {
       if (validated.error) {
         return sendJson(res, 400, { error: validated.error });
       }
-      const item = validated.value;
 
-      await runSql(`
-        UPDATE food_entries
-        SET name = ${sqlValue(item.name)},
-            code = ${sqlValue(item.code)},
-            carbon_score = ${sqlValue(item.carbon_score)},
-            land_score = ${sqlValue(item.land_score)},
-            water_score = ${sqlValue(item.water_score)},
-            nutrition_score = ${sqlValue(item.nutrition_score)},
-            biodiversity_score = ${sqlValue(item.biodiversity_score)},
-            affordability_score = ${sqlValue(item.affordability_score)},
-            composite_score = ${sqlValue(item.composite_score)},
-            tagged_recipes = ${sqlValue(JSON.stringify(item.tagged_recipes))},
-            updated_at = ${sqlValue(new Date().toISOString())}
-        WHERE id = ${sqlValue(id)};
-      `);
-
+      await runSql(foodUpdateSql(id, validated.value, new Date().toISOString()));
       return sendJson(res, 200, await getItemById(id));
     } catch (error) {
       console.error(error);
@@ -665,6 +1076,7 @@ async function handleApi(req, res, pathname, searchParams) {
     if (!Number.isInteger(id)) {
       return sendJson(res, 400, { error: 'Invalid item id.' });
     }
+
     if (!await getItemById(id)) {
       return sendJson(res, 404, { error: 'Food item not found.' });
     }
@@ -677,23 +1089,28 @@ async function handleApi(req, res, pathname, searchParams) {
 }
 
 const server = http.createServer(async (req, res) => {
-  const requestUrl = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = requestUrl.pathname;
+  try {
+    const requestUrl = new URL(req.url, `http://${req.headers.host}`);
+    const pathname = requestUrl.pathname;
 
-  if (pathname.startsWith('/api/')) {
-    return handleApi(req, res, pathname, requestUrl.searchParams);
+    if (pathname.startsWith('/api/')) {
+      return handleApi(req, res, pathname, requestUrl.searchParams);
+    }
+
+    const method = req.method.toUpperCase();
+    if (method !== 'GET' && method !== 'HEAD') {
+      return sendText(res, 405, 'Method Not Allowed');
+    }
+
+    if (serveStatic(pathname, method, res)) {
+      return;
+    }
+
+    return sendText(res, 404, 'Not Found');
+  } catch (error) {
+    console.error(error);
+    return sendJson(res, 500, { error: 'Unexpected server error.' });
   }
-
-  const method = req.method.toUpperCase();
-  if (method !== 'GET' && method !== 'HEAD') {
-    return sendText(res, 405, 'Method Not Allowed');
-  }
-
-  if (serveStatic(pathname, method, res)) {
-    return;
-  }
-
-  return sendText(res, 404, 'Not Found');
 });
 
 initializeDatabase()
