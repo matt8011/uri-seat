@@ -49,3 +49,47 @@ export function formatDateTime(value) {
 
   return new Date(value).toLocaleString();
 }
+
+function valueOrZero(value) {
+  return value === null || value === undefined ? 0 : Number(value);
+}
+
+function roundMetric(value, precision = 4) {
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+}
+
+export function calculateNutrientRichFoodIndex(item) {
+  const index =
+    (valueOrZero(item.protein) / 50 +
+      valueOrZero(item.fiber) / 25 +
+      valueOrZero(item.vitamin_a) / 5000 +
+      valueOrZero(item.vitamin_c) / 60 +
+      valueOrZero(item.vitamin_e) / 30 +
+      valueOrZero(item.calcium) / 1000 +
+      valueOrZero(item.iron) / 18 +
+      valueOrZero(item.magnesium) / 400 +
+      valueOrZero(item.potassium) / 3500 -
+      valueOrZero(item.saturated_fat) / 20 -
+      valueOrZero(item.added_sugar) / 50 -
+      valueOrZero(item.sodium) / 2400) *
+    100;
+
+  return roundMetric(index);
+}
+
+export function calculateNutritionCompositeScore(index) {
+  if (index <= 4.1) {
+    return 1;
+  }
+  if (index <= 10.6) {
+    return 2;
+  }
+  if (index <= 18.2) {
+    return 3;
+  }
+  if (index <= 30.5) {
+    return 4;
+  }
+  return 5;
+}

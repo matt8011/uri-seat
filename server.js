@@ -134,6 +134,20 @@ const FOOD_COLUMNS = [
   'food_classification',
   'environmental_composite_score'
 ];
+const REQUIRED_NUMERIC_FIELDS = [
+  ['protein', 'Protein'],
+  ['fiber', 'Fiber'],
+  ['vitamin_a', 'Vitamin A'],
+  ['vitamin_c', 'Vitamin C'],
+  ['vitamin_e', 'Vitamin E'],
+  ['calcium', 'Calcium'],
+  ['iron', 'Iron'],
+  ['magnesium', 'Magnesium'],
+  ['potassium', 'Potassium'],
+  ['saturated_fat', 'Saturated Fat'],
+  ['added_sugar', 'Added Sugar'],
+  ['sodium', 'Sodium']
+];
 
 function sqlEscape(value) {
   return String(value).replaceAll("'", "''");
@@ -537,33 +551,47 @@ function deserializeRow(row) {
 
 function validateFoodPayload(body) {
   const name = String(body.name || '').trim();
+  const taggedRecipes = normalizeRecipes(body.tagged_recipes);
   const foodClassification = normalizeClassification(body.food_classification);
+  const normalizedNumbers = Object.fromEntries(
+    REQUIRED_NUMERIC_FIELDS.map(([key]) => [key, normalizeNumber(body[key])])
+  );
 
   if (!name) {
     return { error: 'Food item name is required.' };
+  }
+
+  if (taggedRecipes.length === 0) {
+    return { error: 'Tagged recipes are required.' };
   }
 
   if (!foodClassification) {
     return { error: 'A valid food classification is required.' };
   }
 
+  for (const [key, label] of REQUIRED_NUMERIC_FIELDS) {
+    if (normalizedNumbers[key] === null) {
+      return { error: `${label} is required.` };
+    }
+  }
+
   return {
     value: withCalculatedFields({
       name,
       sustainability_index: null,
-      tagged_recipes: normalizeRecipes(body.tagged_recipes),
-      protein: normalizeNumber(body.protein),
-      fiber: normalizeNumber(body.fiber),
-      vitamin_a: normalizeNumber(body.vitamin_a),
-      vitamin_c: normalizeNumber(body.vitamin_c),
-      vitamin_e: normalizeNumber(body.vitamin_e),
-      calcium: normalizeNumber(body.calcium),
-      iron: normalizeNumber(body.iron),
-      magnesium: normalizeNumber(body.magnesium),
-      potassium: normalizeNumber(body.potassium),
-      saturated_fat: normalizeNumber(body.saturated_fat),
-      added_sugar: normalizeNumber(body.added_sugar),
-      sodium: normalizeNumber(body.sodium),
+      tagged_recipes: taggedRecipes,
+      protein: normalizedNumbers.protein,
+      fiber: normalizedNumbers.fiber,
+      vitamin_a: normalizedNumbers.vitamin_a,
+      vitamin_c: normalizedNumbers.vitamin_c,
+      vitamin_e: normalizedNumbers.vitamin_e,
+      calcium: normalizedNumbers.calcium,
+      iron: normalizedNumbers.iron,
+      magnesium: normalizedNumbers.magnesium,
+      potassium: normalizedNumbers.potassium,
+      saturated_fat: normalizedNumbers.saturated_fat,
+      added_sugar: normalizedNumbers.added_sugar,
+      sodium: normalizedNumbers.sodium,
       nutrient_rich_food_index: null,
       nutrition_composite_score: null,
       food_classification: foodClassification,
@@ -1085,7 +1113,8 @@ async function handleApi(req, res, pathname, searchParams) {
 
   if (pathname === '/api/meta' && method === 'GET') {
     return sendJson(res, 200, {
-      classifications: FOOD_CLASSIFICATIONS
+      classifications: FOOD_CLASSIFICATIONS,
+      environmentalCompositeScores: ENVIRONMENTAL_COMPOSITE_SCORES
     });
   }
 

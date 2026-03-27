@@ -1,4 +1,12 @@
-import { api, escapeHtml, formatDateTime, formatMetric, parseRecipes } from '/shared.js';
+import {
+  api,
+  calculateNutrientRichFoodIndex,
+  calculateNutritionCompositeScore,
+  escapeHtml,
+  formatDateTime,
+  formatMetric,
+  parseRecipes
+} from '/shared.js';
 
 const editableNumberFields = [
   'protein',
@@ -27,6 +35,7 @@ const state = {
   session: null,
   items: [],
   classifications: [],
+  environmentalCompositeScores: {},
   authReady: false
 };
 
@@ -52,7 +61,16 @@ const elements = {
 
 function getNumberValue(id) {
   const raw = document.getElementById(id).value.trim();
-  return raw === '' ? null : Number(raw);
+  if (raw === '') {
+    return null;
+  }
+
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function setReadOnlyFieldValue(id, value) {
+  document.getElementById(id).value = value === null || value === undefined ? '' : value;
 }
 
 function setAdminMessage(message, isError = false) {
@@ -85,7 +103,9 @@ async function loadSession() {
 async function loadMeta() {
   const payload = await api('/api/meta');
   state.classifications = payload.classifications || [];
+  state.environmentalCompositeScores = payload.environmentalCompositeScores || {};
   populateClassifications();
+  updateDerivedPreview();
 }
 
 async function loadItems() {
@@ -174,6 +194,7 @@ function populateForm(item) {
   elements.cancelEdit.classList.remove('hidden');
   setAdminMessage(`Editing ${item.name}.`);
   elements.entryForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  updateDerivedPreview();
 }
 
 function clearForm() {
@@ -184,6 +205,7 @@ function clearForm() {
   for (const field of readOnlyFields) {
     document.getElementById(field).value = '';
   }
+  updateDerivedPreview();
 }
 
 function buildPayload() {
@@ -198,6 +220,34 @@ function buildPayload() {
   }
 
   return payload;
+}
+
+function updateDerivedPreview() {
+  const classification = elements.foodClassification.value;
+  const environmentalCompositeScore = state.environmentalCompositeScores[classification];
+  setReadOnlyFieldValue(
+    'environmental_composite_score',
+    environmentalCompositeScore === undefined ? null : environmentalCompositeScore
+  );
+
+  const hasAllNutritionValues = editableNumberFields.every(
+    (field) => getNumberValue(field) !== null
+  );
+
+  if (!hasAllNutritionValues) {
+    setReadOnlyFieldValue('nutrient_rich_food_index', null);
+    setReadOnlyFieldValue('nutrition_composite_score', null);
+    return;
+  }
+
+  const nutritionPayload = Object.fromEntries(
+    editableNumberFields.map((field) => [field, getNumberValue(field)])
+  );
+  const nutrientRichFoodIndex = calculateNutrientRichFoodIndex(nutritionPayload);
+  const nutritionCompositeScore = calculateNutritionCompositeScore(nutrientRichFoodIndex);
+
+  setReadOnlyFieldValue('nutrient_rich_food_index', nutrientRichFoodIndex);
+  setReadOnlyFieldValue('nutrition_composite_score', nutritionCompositeScore);
 }
 
 async function handleCredentialResponse(response) {
@@ -253,8 +303,21 @@ elements.signOutButton.addEventListener('click', async () => {
   renderAdminTable();
 });
 
+elements.foodClassification.addEventListener('change', () => {
+  updateDerivedPreview();
+});
+
+for (const field of editableNumberFields) {
+  document.getElementById(field).addEventListener('input', () => {
+    updateDerivedPreview();
+  });
+}
+
 elements.entryForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (!elements.entryForm.reportValidity()) {
+    return;
+  }
   const id = elements.entryId.value;
 
   try {
