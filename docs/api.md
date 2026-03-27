@@ -135,7 +135,7 @@ Notes:
 
 - `nutrient_rich_food_index` and `nutrition_composite_score` are calculated automatically by the server
 - `environmental_composite_score` is also calculated automatically by the server from `food_classification`
-- `sustainability_index` still exists in the schema but is not currently editable through the API payload
+- `sustainability_index` is calculated automatically as `nutrition_composite_score + environmental_composite_score`
 
 ### `PUT /api/items/:id`
 
@@ -216,13 +216,17 @@ The Nutrition Composite Score is then assigned from the Nutrient Rich Food Index
 
 The Environmental Composite Score is assigned by a static server-side mapping from `food_classification` using the workbook data from the `environmental-ind` sheet.
 
+The Sustainability Index is assigned as:
+
+`nutrition_composite_score + environmental_composite_score`
+
 Responses currently include:
 
 ```json
 {
   "id": 1,
   "name": "Tofu Stir Fry",
-  "sustainability_index": null,
+  "sustainability_index": 9.3333,
   "tagged_recipes": ["stir fry", "vegan entree"],
   "created_at": "2026-03-27T12:00:00.000Z",
   "updated_at": "2026-03-27T12:00:00.000Z",

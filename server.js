@@ -495,6 +495,19 @@ function calculateEnvironmentalCompositeScore(classification) {
   return value === undefined ? null : roundMetric(value);
 }
 
+function calculateSustainabilityIndex(nutritionCompositeScore, environmentalCompositeScore) {
+  if (
+    nutritionCompositeScore === null ||
+    nutritionCompositeScore === undefined ||
+    environmentalCompositeScore === null ||
+    environmentalCompositeScore === undefined
+  ) {
+    return null;
+  }
+
+  return roundMetric(Number(nutritionCompositeScore) + Number(environmentalCompositeScore));
+}
+
 function withCalculatedNutrition(item) {
   const nutrientRichFoodIndex = calculateNutrientRichFoodIndex(item);
 
@@ -506,9 +519,16 @@ function withCalculatedNutrition(item) {
 }
 
 function withCalculatedFields(item) {
+  const nutritionValues = withCalculatedNutrition(item);
+  const environmentalCompositeScore = calculateEnvironmentalCompositeScore(item.food_classification);
+
   return {
-    ...withCalculatedNutrition(item),
-    environmental_composite_score: calculateEnvironmentalCompositeScore(item.food_classification)
+    ...nutritionValues,
+    sustainability_index: calculateSustainabilityIndex(
+      nutritionValues.nutrition_composite_score,
+      environmentalCompositeScore
+    ),
+    environmental_composite_score: environmentalCompositeScore
   };
 }
 
@@ -607,7 +627,8 @@ async function backfillCalculatedNutritionScores() {
     const item = withCalculatedFields(deserializeRow(row));
     await runSql(`
       UPDATE food_entries
-      SET nutrient_rich_food_index = ${sqlValue(item.nutrient_rich_food_index)},
+      SET sustainability_index = ${sqlValue(item.sustainability_index)},
+          nutrient_rich_food_index = ${sqlValue(item.nutrient_rich_food_index)},
           nutrition_composite_score = ${sqlValue(item.nutrition_composite_score)},
           environmental_composite_score = ${sqlValue(item.environmental_composite_score)}
       WHERE id = ${sqlValue(item.id)};

@@ -93,3 +93,19 @@ export function calculateNutritionCompositeScore(index) {
   }
   return 5;
 }
+
+export function calculateSustainabilityIndex(
+  nutritionCompositeScore,
+  environmentalCompositeScore
+) {
+  if (
+    nutritionCompositeScore === null ||
+    nutritionCompositeScore === undefined ||
+    environmentalCompositeScore === null ||
+    environmentalCompositeScore === undefined
+  ) {
+    return null;
+  }
+
+  return roundMetric(Number(nutritionCompositeScore) + Number(environmentalCompositeScore));
+}

@@ -2,6 +2,7 @@ import {
   api,
   calculateNutrientRichFoodIndex,
   calculateNutritionCompositeScore,
+  calculateSustainabilityIndex,
   escapeHtml,
   formatDateTime,
   formatMetric,
@@ -237,6 +238,7 @@ function updateDerivedPreview() {
   if (!hasAllNutritionValues) {
     setReadOnlyFieldValue('nutrient_rich_food_index', null);
     setReadOnlyFieldValue('nutrition_composite_score', null);
+    setReadOnlyFieldValue('sustainability_index', null);
     return;
   }
 
@@ -248,6 +250,10 @@ function updateDerivedPreview() {
 
   setReadOnlyFieldValue('nutrient_rich_food_index', nutrientRichFoodIndex);
   setReadOnlyFieldValue('nutrition_composite_score', nutritionCompositeScore);
+  setReadOnlyFieldValue(
+    'sustainability_index',
+    calculateSustainabilityIndex(nutritionCompositeScore, environmentalCompositeScore)
+  );
 }
 
 async function handleCredentialResponse(response) {
