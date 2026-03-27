@@ -6,6 +6,7 @@ import {
   escapeHtml,
   formatDateTime,
   formatMetric,
+  getSustainabilityPalette,
   parseRecipes
 } from '/shared.js';
 
@@ -72,6 +73,14 @@ function getNumberValue(id) {
 
 function setReadOnlyFieldValue(id, value) {
   document.getElementById(id).value = value === null || value === undefined ? '' : value;
+}
+
+function updateSustainabilityFieldStyle(value) {
+  const field = document.getElementById('sustainability_index');
+  const palette = getSustainabilityPalette(value);
+  field.style.background = palette.background;
+  field.style.borderColor = palette.border;
+  field.style.color = palette.text;
 }
 
 function setAdminMessage(message, isError = false) {
@@ -191,6 +200,7 @@ function populateForm(item) {
   for (const field of readOnlyFields) {
     document.getElementById(field).value = item[field] ?? '';
   }
+  updateSustainabilityFieldStyle(item.sustainability_index);
 
   elements.cancelEdit.classList.remove('hidden');
   setAdminMessage(`Editing ${item.name}.`);
@@ -206,6 +216,7 @@ function clearForm() {
   for (const field of readOnlyFields) {
     document.getElementById(field).value = '';
   }
+  updateSustainabilityFieldStyle(null);
   updateDerivedPreview();
 }
 
@@ -239,6 +250,7 @@ function updateDerivedPreview() {
     setReadOnlyFieldValue('nutrient_rich_food_index', null);
     setReadOnlyFieldValue('nutrition_composite_score', null);
     setReadOnlyFieldValue('sustainability_index', null);
+    updateSustainabilityFieldStyle(null);
     return;
   }
 
@@ -250,10 +262,12 @@ function updateDerivedPreview() {
 
   setReadOnlyFieldValue('nutrient_rich_food_index', nutrientRichFoodIndex);
   setReadOnlyFieldValue('nutrition_composite_score', nutritionCompositeScore);
-  setReadOnlyFieldValue(
-    'sustainability_index',
-    calculateSustainabilityIndex(nutritionCompositeScore, environmentalCompositeScore)
+  const sustainabilityIndex = calculateSustainabilityIndex(
+    nutritionCompositeScore,
+    environmentalCompositeScore
   );
+  setReadOnlyFieldValue('sustainability_index', sustainabilityIndex);
+  updateSustainabilityFieldStyle(sustainabilityIndex);
 }
 
 async function handleCredentialResponse(response) {

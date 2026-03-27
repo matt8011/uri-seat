@@ -109,3 +109,22 @@ export function calculateSustainabilityIndex(
 
   return roundMetric(Number(nutritionCompositeScore) + Number(environmentalCompositeScore));
 }
+
+export function getSustainabilityPalette(score) {
+  if (score === null || score === undefined) {
+    return {
+      background: 'rgba(36, 79, 56, 0.08)',
+      border: 'rgba(36, 79, 56, 0.16)',
+      text: '#244f38'
+    };
+  }
+
+  const normalized = Math.max(0, Math.min(Number(score), 10)) / 10;
+  const hue = normalized * 120;
+
+  return {
+    background: `hsl(${hue} 78% 84%)`,
+    border: `hsl(${hue} 58% 62%)`,
+    text: `hsl(${hue} 78% 18%)`
+  };
+}

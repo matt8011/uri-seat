@@ -1,4 +1,10 @@
-import { api, escapeHtml, formatDateTime, formatMetric } from '/shared.js';
+import {
+  api,
+  escapeHtml,
+  formatDateTime,
+  formatMetric,
+  getSustainabilityPalette
+} from '/shared.js';
 
 const state = {
   items: [],
@@ -46,10 +52,16 @@ function renderResults() {
   for (const item of state.items) {
     const card = document.createElement('article');
     card.className = `result-card${item.id === state.selectedItemId ? ' is-active' : ''}`;
+    const sustainabilityPalette = getSustainabilityPalette(item.sustainability_index);
     card.innerHTML = `
       <div class="result-topline">
         <span class="pill">${escapeHtml(item.food_classification)}</span>
-        <span class="score-chip">Sustainability ${escapeHtml(formatMetric(item.sustainability_index))}</span>
+        <span
+          class="score-chip"
+          style="background:${escapeHtml(sustainabilityPalette.background)};border:1px solid ${escapeHtml(sustainabilityPalette.border)};color:${escapeHtml(sustainabilityPalette.text)};"
+        >
+          Sustainability ${escapeHtml(formatMetric(item.sustainability_index))}
+        </span>
       </div>
       <h3 class="result-title">${escapeHtml(item.name)}</h3>
       <p class="result-subtitle">
@@ -82,12 +94,16 @@ function renderDetail() {
   }
 
   elements.detailTitle.textContent = item.name;
+  const sustainabilityPalette = getSustainabilityPalette(item.sustainability_index);
   elements.detailContent.innerHTML = `
     <p class="detail-copy">
       Last updated ${escapeHtml(formatDateTime(item.updated_at))}.
     </p>
     <div class="score-grid">
-      <div class="score-cell">
+      <div
+        class="score-cell"
+        style="background:${escapeHtml(sustainabilityPalette.background)};border:1px solid ${escapeHtml(sustainabilityPalette.border)};color:${escapeHtml(sustainabilityPalette.text)};"
+      >
         <span>Sustainability Index</span>
         <strong>${escapeHtml(formatMetric(item.sustainability_index))}</strong>
       </div>
