@@ -133,8 +133,8 @@ Request body:
 
 Notes:
 
-- `sustainability_index`, `nutrient_rich_food_index`, `nutrition_composite_score`, and `environmental_composite_score` exist in the schema but are not currently editable through the API payload
-- those computed fields are stored as `null` for now
+- `nutrient_rich_food_index` and `nutrition_composite_score` are calculated automatically by the server
+- `sustainability_index` and `environmental_composite_score` still exist in the schema but are not currently editable through the API payload
 
 ### `PUT /api/items/:id`
 
@@ -200,6 +200,18 @@ Accepted aliases:
 - `recipe_tags` for `tagged_recipes`
 
 ## Current Food Entry Shape
+
+Nutrition calculations currently use:
+
+`((protein/50) + (fiber/25) + (vitamin_a/5000) + (vitamin_c/60) + (vitamin_e/30) + (calcium/1000) + (iron/18) + (magnesium/400) + (potassium/3500) - (saturated_fat/20) - (added_sugar/50) - (sodium/2400)) * 100`
+
+The Nutrition Composite Score is then assigned from the Nutrient Rich Food Index:
+
+- `1` when `ind <= 4.1`
+- `2` when `4.1 < ind <= 10.6`
+- `3` when `10.6 < ind <= 18.2`
+- `4` when `18.2 < ind <= 30.5`
+- `5` when `ind > 30.5`
 
 Responses currently include:
 

@@ -213,6 +213,7 @@ async function initializeDatabase() {
   `);
 
   await ensureFoodEntriesSchema();
+  await backfillCalculatedNutritionScores();
 }
 
 function parseJsonBody(req) {
@@ -382,6 +383,60 @@ function normalizeClassification(value) {
   return FOOD_CLASSIFICATIONS.includes(classification) ? classification : '';
 }
 
+function valueOrZero(value) {
+  return value === null || value === undefined ? 0 : Number(value);
+}
+
+function roundMetric(value, precision = 4) {
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+}
+
+function calculateNutrientRichFoodIndex(item) {
+  const index =
+    (valueOrZero(item.protein) / 50 +
+      valueOrZero(item.fiber) / 25 +
+      valueOrZero(item.vitamin_a) / 5000 +
+      valueOrZero(item.vitamin_c) / 60 +
+      valueOrZero(item.vitamin_e) / 30 +
+      valueOrZero(item.calcium) / 1000 +
+      valueOrZero(item.iron) / 18 +
+      valueOrZero(item.magnesium) / 400 +
+      valueOrZero(item.potassium) / 3500 -
+      valueOrZero(item.saturated_fat) / 20 -
+      valueOrZero(item.added_sugar) / 50 -
+      valueOrZero(item.sodium) / 2400) *
+    100;
+
+  return roundMetric(index);
+}
+
+function calculateNutritionCompositeScore(index) {
+  if (index <= 4.1) {
+    return 1;
+  }
+  if (index <= 10.6) {
+    return 2;
+  }
+  if (index <= 18.2) {
+    return 3;
+  }
+  if (index <= 30.5) {
+    return 4;
+  }
+  return 5;
+}
+
+function withCalculatedNutrition(item) {
+  const nutrientRichFoodIndex = calculateNutrientRichFoodIndex(item);
+
+  return {
+    ...item,
+    nutrient_rich_food_index: nutrientRichFoodIndex,
+    nutrition_composite_score: calculateNutritionCompositeScore(nutrientRichFoodIndex)
+  };
+}
+
 function deserializeRow(row) {
   if (!row) {
     return null;
@@ -432,7 +487,7 @@ function validateFoodPayload(body) {
   }
 
   return {
-    value: {
+    value: withCalculatedNutrition({
       name,
       sustainability_index: null,
       tagged_recipes: normalizeRecipes(body.tagged_recipes),
@@ -452,8 +507,22 @@ function validateFoodPayload(body) {
       nutrition_composite_score: null,
       food_classification: foodClassification,
       environmental_composite_score: null
-    }
+    })
   };
+}
+
+async function backfillCalculatedNutritionScores() {
+  const rows = await allSql('SELECT * FROM food_entries ORDER BY id ASC;');
+
+  for (const row of rows) {
+    const item = withCalculatedNutrition(deserializeRow(row));
+    await runSql(`
+      UPDATE food_entries
+      SET nutrient_rich_food_index = ${sqlValue(item.nutrient_rich_food_index)},
+          nutrition_composite_score = ${sqlValue(item.nutrition_composite_score)}
+      WHERE id = ${sqlValue(item.id)};
+    `);
+  }
 }
 
 function foodInsertSql(item, timestamp, explicitCreatedAt = null) {

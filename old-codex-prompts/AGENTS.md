@@ -78,12 +78,17 @@ The `food_entries` table now reflects three categories of data:
 - `food_classification`
 - `environmental_composite_score`
 
-At the moment, the computed fields exist in the schema but are intentionally not user-editable:
+At the moment, these fields are intentionally not user-editable:
 
 - `sustainability_index`
+- `environmental_composite_score`
+
+These nutrition-derived fields are now computed automatically by the server:
+
 - `nutrient_rich_food_index`
 - `nutrition_composite_score`
-- `environmental_composite_score`
+
+The current NRFI formula multiplies the full nutrient-balance expression by `100` before assigning the composite score threshold.
 
 ## Refactor Invariants
 
