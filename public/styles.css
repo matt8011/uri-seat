@@ -68,9 +68,6 @@ body::before {
   border-radius: var(--radius-lg);
   background: rgba(255, 251, 244, 0.74);
   box-shadow: var(--shadow);
-  position: sticky;
-  top: 16px;
-  z-index: 20;
 }
 
 .topbar-note {
@@ -243,6 +240,15 @@ input[readonly] {
 .admin-workspace {
   display: grid;
   gap: 24px;
+}
+
+.admin-layout {
+  margin-top: 24px;
+}
+
+.admin-layout,
+.admin-workspace {
+  align-items: start;
 }
 
 .content-grid {
@@ -475,6 +481,13 @@ input[readonly] {
   margin-bottom: 12px;
 }
 
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
 .google-mount {
   min-height: 40px;
   margin-bottom: 14px;
@@ -515,6 +528,11 @@ input[readonly] {
   font-weight: 600;
 }
 
+.file-picker {
+  flex: 1 1 280px;
+  min-width: min(100%, 280px);
+}
+
 .entry-form span,
 .file-picker span {
   font-size: 0.95rem;
@@ -525,6 +543,8 @@ input[readonly] {
   align-items: center;
   gap: 10px;
   font-weight: 600;
+  flex: 1 1 280px;
+  align-self: center;
 }
 
 .checkbox-row input {
@@ -562,6 +582,10 @@ input[readonly] {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.import-controls > .button {
+  align-self: end;
 }
 
 .button {
@@ -633,6 +657,15 @@ input[readonly] {
     grid-template-columns: 1fr;
   }
 
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .panel-meta {
+    margin: 0;
+  }
+
   .detail-panel {
     display: none;
     position: fixed;
@@ -675,6 +708,15 @@ input[readonly] {
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .import-controls {
+    align-items: stretch;
+  }
+
+  .import-controls > .button,
+  .table-actions > .button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 720px) {
@@ -691,7 +733,10 @@ input[readonly] {
 
   .topbar-actions,
   .searchbar,
-  .form-actions {
+  .form-actions,
+  .auth-actions,
+  .table-actions,
+  .import-controls {
     flex-direction: column;
   }
 
@@ -727,5 +772,60 @@ input[readonly] {
 
   .form-grid-span-2 {
     grid-column: span 1;
+  }
+
+  .checkbox-row {
+    align-items: start;
+  }
+
+  .admin-table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .admin-table,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table thead {
+    display: none;
+  }
+
+  .admin-table tr {
+    padding: 18px;
+    margin-bottom: 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(36, 49, 39, 0.08);
+    background: rgba(255, 255, 255, 0.78);
+  }
+
+  .admin-table td {
+    display: grid;
+    grid-template-columns: minmax(96px, 120px) minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 0;
+  }
+
+  .admin-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .admin-table td:last-child {
+    padding-bottom: 0;
+  }
+
+  .table-actions {
+    width: 100%;
   }
 }

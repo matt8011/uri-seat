@@ -22,8 +22,7 @@
       </a>
       <nav class="topbar-actions">
         <a class="button button-ghost" href="/">Search</a>
-        <button id="signInButton" class="button button-secondary" type="button">Login</button>
-        <button id="signOutButton" class="button button-ghost hidden" type="button">Sign Out</button>
+        <p id="adminNavLabel" class="topbar-note">Login</p>
       </nav>
     </header>
 
@@ -39,6 +38,9 @@
         <div id="authStatus" class="auth-status">Checking session...</div>
         <div id="googleMount" class="google-mount hidden"></div>
         <p id="authHint" class="auth-hint"></p>
+        <div class="auth-actions">
+          <button id="signOutButton" class="button button-ghost hidden" type="button">Sign Out</button>
+        </div>
       </section>
 
       <section id="adminWorkspace" class="admin-workspace hidden">

@@ -74,7 +74,7 @@ const state = {
 };
 
 const elements = {
-  signInButton: document.getElementById('signInButton'),
+  adminNavLabel: document.getElementById('adminNavLabel'),
   signOutButton: document.getElementById('signOutButton'),
   googleMount: document.getElementById('googleMount'),
   authStatus: document.getElementById('authStatus'),
@@ -144,18 +144,16 @@ function renderAuth() {
   const user = state.session;
   const isAdmin = Boolean(user?.isAdmin);
 
+  elements.adminNavLabel.textContent = user ? 'Logout' : 'Login';
   elements.signOutButton.classList.toggle('hidden', !user);
   elements.adminWorkspace.classList.toggle('hidden', !isAdmin);
 
   if (!state.config?.googleAuthEnabled) {
     elements.authStatus.textContent = 'Google Auth is not configured yet.';
     elements.authHint.textContent = 'Set GOOGLE_CLIENT_ID, SESSION_SECRET, and ADMIN_EMAILS on the server to enable admin access.';
-    elements.signInButton.classList.add('hidden');
     elements.googleMount.classList.add('hidden');
     return;
   }
-
-  elements.signInButton.classList.remove('hidden');
 
   if (!user) {
     elements.authStatus.textContent = 'Authorized users only. No session active.';
@@ -189,11 +187,11 @@ function renderAdminTable() {
   for (const item of state.items) {
     const row = document.createElement('tr');
     row.innerHTML = `
-      <td>${escapeHtml(item.name)}</td>
-      <td>${escapeHtml(String(item.ghg_emissions ?? ''))}</td>
-      <td>${escapeHtml((item.tagged_recipes || []).join(', '))}</td>
-      <td>${escapeHtml(formatDateTime(item.updated_at))}</td>
-      <td>
+      <td data-label="Food item">${escapeHtml(item.name)}</td>
+      <td data-label="GHG emissions">${escapeHtml(String(item.ghg_emissions ?? ''))}</td>
+      <td data-label="Tagged recipes">${escapeHtml((item.tagged_recipes || []).join(', '))}</td>
+      <td data-label="Updated">${escapeHtml(formatDateTime(item.updated_at))}</td>
+      <td data-label="Actions">
         <div class="table-actions">
           <button class="button button-secondary" type="button" data-action="edit" data-id="${item.id}">Edit</button>
           <button class="button button-danger" type="button" data-action="delete" data-id="${item.id}">Delete</button>
@@ -331,15 +329,6 @@ function renderGoogleButton() {
   });
   state.authReady = true;
 }
-
-elements.signInButton.addEventListener('click', () => {
-  if (!state.config?.googleAuthEnabled) {
-    return;
-  }
-  elements.googleMount.classList.remove('hidden');
-  renderGoogleButton();
-  elements.googleMount.scrollIntoView({ behavior: 'smooth', block: 'center' });
-});
 
 elements.signOutButton.addEventListener('click', async () => {
   await api('/api/auth/logout', { method: 'POST' });
