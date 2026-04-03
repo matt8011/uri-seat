@@ -125,6 +125,7 @@ Notes:
 - `nutrient_rich_food_index` and `nutrition_composite_score` are calculated automatically by the server
 - the environmental side now stores raw user-entered measurements instead of using a static classification lookup
 - `environmental_composite_score` is calculated automatically by scoring each environmental factor from `1` to `5` using threshold cutoffs, then averaging the six scores
+- `water_use_score`, `nitrogen_use_score`, `carbon_use_score`, and `land_use_score` are calculated automatically from those same environmental factor scores
 - `sustainability_index` is calculated automatically as `nutrition_composite_score + environmental_composite_score`
 
 ### `PUT /api/items/:id`
@@ -232,6 +233,13 @@ Environmental factor scoring thresholds:
 - `ghg_emissions`: `1` if `> 5.8`, `2` if `> 3.4`, `3` if `> 2.2`, `4` if `> 1.4`, else `5`
 - `land_use`: `1` if `> 13`, `2` if `> 5.9`, `3` if `> 3.7`, `4` if `> 2.1`, else `5`
 
+Derived environmental sub-scores:
+
+- `water_use_score = (score_2_1 + score_2_2) / 2`
+- `nitrogen_use_score = (score_2_3 + score_2_4) / 2`
+- `carbon_use_score = score_2_5`
+- `land_use_score = score_2_6`
+
 Responses currently include:
 
 ```json
@@ -262,6 +270,10 @@ Responses currently include:
   "eutrophying_emissions": 6.2,
   "ghg_emissions": 3.2,
   "land_use": 3.5,
-  "environmental_composite_score": 4.3333
+  "environmental_composite_score": 4.3333,
+  "water_use_score": 5,
+  "nitrogen_use_score": 4.5,
+  "carbon_use_score": 3,
+  "land_use_score": 4
 }
 ```

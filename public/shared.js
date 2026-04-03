@@ -108,60 +108,14 @@ export function calculateEnvironmentalCompositeScore(item) {
     return null;
   }
 
-  const scoreFreshwaterWithdrawals = Number(values.freshwater_withdrawals) > 549.9
-    ? 1
-    : Number(values.freshwater_withdrawals) > 377.1
-      ? 2
-      : Number(values.freshwater_withdrawals) > 263.7
-        ? 3
-        : Number(values.freshwater_withdrawals) > 161.4
-          ? 4
-          : 5;
-  const scoreStressWeightedWaterUse = Number(values.stress_weighted_water_use) > 18475
-    ? 1
-    : Number(values.stress_weighted_water_use) > 12806
-      ? 2
-      : Number(values.stress_weighted_water_use) > 9079
-        ? 3
-        : Number(values.stress_weighted_water_use) > 5601
-          ? 4
-          : 5;
-  const scoreAcidifyingEmissions = Number(values.acidifying_emissions) > 34.4
-    ? 1
-    : Number(values.acidifying_emissions) > 22.6
-      ? 2
-      : Number(values.acidifying_emissions) > 15.4
-        ? 3
-        : Number(values.acidifying_emissions) > 9.3
-          ? 4
-          : 5;
-  const scoreEutrophyingEmissions = Number(values.eutrophying_emissions) > 28
-    ? 1
-    : Number(values.eutrophying_emissions) > 16.3
-      ? 2
-      : Number(values.eutrophying_emissions) > 10.2
-        ? 3
-        : Number(values.eutrophying_emissions) > 6.1
-          ? 4
-          : 5;
-  const scoreGhgEmissions = Number(values.ghg_emissions) > 5.8
-    ? 1
-    : Number(values.ghg_emissions) > 3.4
-      ? 2
-      : Number(values.ghg_emissions) > 2.2
-        ? 3
-        : Number(values.ghg_emissions) > 1.4
-          ? 4
-          : 5;
-  const scoreLandUse = Number(values.land_use) > 13
-    ? 1
-    : Number(values.land_use) > 5.9
-      ? 2
-      : Number(values.land_use) > 3.7
-        ? 3
-        : Number(values.land_use) > 2.1
-          ? 4
-          : 5;
+  const {
+    scoreFreshwaterWithdrawals,
+    scoreStressWeightedWaterUse,
+    scoreAcidifyingEmissions,
+    scoreEutrophyingEmissions,
+    scoreGhgEmissions,
+    scoreLandUse
+  } = calculateEnvironmentalIndicatorScores(values);
 
   return roundMetric(
     (
@@ -173,6 +127,105 @@ export function calculateEnvironmentalCompositeScore(item) {
       scoreLandUse
     ) / 6
   );
+}
+
+export function calculateEnvironmentalIndicatorScores(item) {
+  return {
+    scoreFreshwaterWithdrawals: Number(item.freshwater_withdrawals) > 549.9
+      ? 1
+      : Number(item.freshwater_withdrawals) > 377.1
+        ? 2
+        : Number(item.freshwater_withdrawals) > 263.7
+          ? 3
+          : Number(item.freshwater_withdrawals) > 161.4
+            ? 4
+            : 5,
+    scoreStressWeightedWaterUse: Number(item.stress_weighted_water_use) > 18475
+      ? 1
+      : Number(item.stress_weighted_water_use) > 12806
+        ? 2
+        : Number(item.stress_weighted_water_use) > 9079
+          ? 3
+          : Number(item.stress_weighted_water_use) > 5601
+            ? 4
+            : 5,
+    scoreAcidifyingEmissions: Number(item.acidifying_emissions) > 34.4
+      ? 1
+      : Number(item.acidifying_emissions) > 22.6
+        ? 2
+        : Number(item.acidifying_emissions) > 15.4
+          ? 3
+          : Number(item.acidifying_emissions) > 9.3
+            ? 4
+            : 5,
+    scoreEutrophyingEmissions: Number(item.eutrophying_emissions) > 28
+      ? 1
+      : Number(item.eutrophying_emissions) > 16.3
+        ? 2
+        : Number(item.eutrophying_emissions) > 10.2
+          ? 3
+          : Number(item.eutrophying_emissions) > 6.1
+            ? 4
+            : 5,
+    scoreGhgEmissions: Number(item.ghg_emissions) > 5.8
+      ? 1
+      : Number(item.ghg_emissions) > 3.4
+        ? 2
+        : Number(item.ghg_emissions) > 2.2
+          ? 3
+          : Number(item.ghg_emissions) > 1.4
+            ? 4
+            : 5,
+    scoreLandUse: Number(item.land_use) > 13
+      ? 1
+      : Number(item.land_use) > 5.9
+        ? 2
+        : Number(item.land_use) > 3.7
+          ? 3
+          : Number(item.land_use) > 2.1
+            ? 4
+            : 5
+  };
+}
+
+export function calculateEnvironmentalFactorScores(item) {
+  const values = [
+    item.freshwater_withdrawals,
+    item.stress_weighted_water_use,
+    item.acidifying_emissions,
+    item.eutrophying_emissions,
+    item.ghg_emissions,
+    item.land_use
+  ];
+
+  if (values.some((value) => value === null || value === undefined)) {
+    return {
+      water_use_score: null,
+      nitrogen_use_score: null,
+      carbon_use_score: null,
+      land_use_score: null
+    };
+  }
+
+  const {
+    scoreFreshwaterWithdrawals,
+    scoreStressWeightedWaterUse,
+    scoreAcidifyingEmissions,
+    scoreEutrophyingEmissions,
+    scoreGhgEmissions,
+    scoreLandUse
+  } = calculateEnvironmentalIndicatorScores(item);
+
+  return {
+    water_use_score: roundMetric(
+      (scoreFreshwaterWithdrawals + scoreStressWeightedWaterUse) / 2
+    ),
+    nitrogen_use_score: roundMetric(
+      (scoreAcidifyingEmissions + scoreEutrophyingEmissions) / 2
+    ),
+    carbon_use_score: roundMetric(scoreGhgEmissions),
+    land_use_score: roundMetric(scoreLandUse)
+  };
 }
 
 export function calculateSustainabilityIndex(

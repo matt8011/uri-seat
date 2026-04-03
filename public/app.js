@@ -115,6 +115,22 @@ function renderDetail() {
         <strong>${escapeHtml(formatMetric(item.environmental_composite_score))}</strong>
       </div>
       <div class="score-cell">
+        <span>Water Use Score</span>
+        <strong>${escapeHtml(formatMetric(item.water_use_score))}</strong>
+      </div>
+      <div class="score-cell">
+        <span>Nitrogen Use Score</span>
+        <strong>${escapeHtml(formatMetric(item.nitrogen_use_score))}</strong>
+      </div>
+      <div class="score-cell">
+        <span>Carbon Use Score</span>
+        <strong>${escapeHtml(formatMetric(item.carbon_use_score))}</strong>
+      </div>
+      <div class="score-cell">
+        <span>Land Use Score</span>
+        <strong>${escapeHtml(formatMetric(item.land_use_score))}</strong>
+      </div>
+      <div class="score-cell">
         <span>Tagged Recipes</span>
         <strong>${escapeHtml(String((item.tagged_recipes || []).length))}</strong>
       </div>

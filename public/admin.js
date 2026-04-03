@@ -1,6 +1,7 @@
 import {
   api,
   calculateEnvironmentalCompositeScore,
+  calculateEnvironmentalFactorScores,
   calculateNutrientRichFoodIndex,
   calculateNutritionCompositeScore,
   calculateSustainabilityIndex,
@@ -58,7 +59,11 @@ const readOnlyFields = [
   'sustainability_index',
   'nutrient_rich_food_index',
   'nutrition_composite_score',
-  'environmental_composite_score'
+  'environmental_composite_score',
+  'water_use_score',
+  'nitrogen_use_score',
+  'carbon_use_score',
+  'land_use_score'
 ];
 
 const state = {
@@ -269,9 +274,18 @@ function updateDerivedPreview() {
     const environmentalPayload = Object.fromEntries(
       environmentalNumberFields.map((field) => [field, getNumberValue(field)])
     );
+    const environmentalFactorScores = calculateEnvironmentalFactorScores(environmentalPayload);
     environmentalCompositeScore = calculateEnvironmentalCompositeScore(environmentalPayload);
+    setReadOnlyFieldValue('water_use_score', environmentalFactorScores.water_use_score);
+    setReadOnlyFieldValue('nitrogen_use_score', environmentalFactorScores.nitrogen_use_score);
+    setReadOnlyFieldValue('carbon_use_score', environmentalFactorScores.carbon_use_score);
+    setReadOnlyFieldValue('land_use_score', environmentalFactorScores.land_use_score);
     setReadOnlyFieldValue('environmental_composite_score', environmentalCompositeScore);
   } else {
+    setReadOnlyFieldValue('water_use_score', null);
+    setReadOnlyFieldValue('nitrogen_use_score', null);
+    setReadOnlyFieldValue('carbon_use_score', null);
+    setReadOnlyFieldValue('land_use_score', null);
     setReadOnlyFieldValue('environmental_composite_score', null);
   }
 
