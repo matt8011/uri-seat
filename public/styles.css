@@ -357,6 +357,7 @@ input[readonly] {
 .detail-content {
   display: grid;
   gap: 18px;
+  align-content: start;
   overflow: visible;
   padding-right: 0;
 }
@@ -683,14 +684,19 @@ input[readonly] {
     inset: 20px 16px;
     width: min(100% - 32px, 760px);
     margin: auto;
-    height: calc(100vh - 40px);
+    height: auto;
     max-height: calc(100vh - 40px);
     overflow: hidden;
     z-index: 50;
   }
 
   .detail-panel.is-open {
-    display: grid;
+    display: block;
+  }
+
+  .detail-panel .panel-header {
+    flex-direction: row;
+    align-items: start;
   }
 
   .detail-backdrop {
@@ -701,8 +707,8 @@ input[readonly] {
   }
 
   .detail-content {
-    overflow-y: auto;
-    padding-right: 6px;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .detail-close {
@@ -727,6 +733,27 @@ input[readonly] {
   .import-controls > .button,
   .table-actions > .button {
     width: 100%;
+  }
+}
+
+@media (max-width: 900px) and (max-height: 520px) {
+  .detail-panel {
+    inset: 12px;
+    display: none;
+    grid-template-rows: auto minmax(0, 1fr);
+    width: min(100% - 24px, 760px);
+    height: calc(100vh - 24px);
+    max-height: calc(100vh - 24px);
+    padding: 20px;
+  }
+
+  .detail-panel.is-open {
+    display: grid;
+  }
+
+  .detail-content {
+    overflow-y: auto;
+    padding-right: 6px;
   }
 }
 
@@ -828,10 +855,16 @@ input[readonly] {
 
   .detail-panel {
     inset: 12px;
+    display: none;
+    grid-template-rows: auto minmax(0, 1fr);
     width: min(100% - 24px, 760px);
     height: calc(100vh - 24px);
     max-height: calc(100vh - 24px);
     padding: 20px;
+  }
+
+  .detail-panel.is-open {
+    display: grid;
   }
 
   .hero h1 {
@@ -888,6 +921,11 @@ input[readonly] {
   .score-grid,
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .detail-content {
+    overflow-y: auto;
+    padding-right: 6px;
   }
 
   .score-subgrid {
