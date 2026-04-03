@@ -184,7 +184,7 @@ function renderAdminTable() {
     return;
   }
 
-  elements.adminTableSummary.textContent = `Showing ${state.items.length} entr${state.items.length === 1 ? 'y' : 'ies'}.`;
+  elements.adminTableSummary.textContent = `Showing ${state.items.length} entr${state.items.length === 1 ? 'y' : 'ies'}`;
 
   for (const item of state.items) {
     const row = document.createElement('tr');
