@@ -20,7 +20,7 @@ const ADMIN_EMAILS = new Set(
 
 const DEFAULT_DB_PATH = path.join(__dirname, 'data.sqlite');
 const DB_PATH = path.resolve(process.env.DB_PATH || DEFAULT_DB_PATH);
-const SEED_DB_PATH = path.resolve(process.env.SEED_DB_PATH || DEFAULT_DB_PATH);
+const SEED_DB_PATH = process.env.SEED_DB_PATH ? path.resolve(process.env.SEED_DB_PATH) : null;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const SESSION_COOKIE = 'food_app_session';
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 14;
@@ -122,8 +122,8 @@ async function allSql(sql) {
 function ensureDatabasePath() {
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
-  // Seed a new persistent database from the bundled app snapshot on first deploy.
-  if (DB_PATH !== SEED_DB_PATH && !fs.existsSync(DB_PATH) && fs.existsSync(SEED_DB_PATH)) {
+  // Seed a new database only when an explicit seed path is provided.
+  if (SEED_DB_PATH && DB_PATH !== SEED_DB_PATH && !fs.existsSync(DB_PATH) && fs.existsSync(SEED_DB_PATH)) {
     fs.copyFileSync(SEED_DB_PATH, DB_PATH);
   }
 }

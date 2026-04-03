@@ -26,6 +26,7 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 - `NODE_ENV`: Set to `production` in deployment so cookies are marked `Secure`
 - `PORT`: Optional HTTP port. Defaults to `3000`
 - `DB_PATH`: Optional path to the SQLite database file. Useful for persistent volumes in production.
+- `SEED_DB_PATH`: Optional path to a seed SQLite file. Only used when explicitly set.
 
 ## Deployment Notes
 
@@ -51,7 +52,14 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 6. Add the Railway domain to your Google OAuth authorized JavaScript origins
 7. Test `/` and `/admin` on the Railway URL before attaching a custom domain
 
-The app now supports first-run seeding for Railway volumes: if `DB_PATH` points at a new empty mounted volume, it will copy the bundled `data.sqlite` into that location on startup so your current local app state can be published without manual database bootstrapping.
+By default, the app does not seed production from your local `data.sqlite`. Railway will keep using the mounted volume at `DB_PATH`, and a brand-new environment will start with an empty database unless you explicitly set `SEED_DB_PATH`.
+
+## Database Safety
+
+- `data.sqlite` is for local development only and should not be committed
+- Production should use a dedicated persistent path such as `/data/data.sqlite`
+- Pushing code to GitHub does not overwrite the Railway volume-backed production database
+- Only set `SEED_DB_PATH` when you intentionally want to bootstrap a fresh environment from a separate seed file
 
 ## Notes
 
