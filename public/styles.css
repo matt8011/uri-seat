@@ -810,6 +810,22 @@ input[readonly] {
     padding: 20px;
   }
 
+  .hero {
+    gap: 16px;
+    margin-top: 18px;
+    padding: 18px;
+    border-radius: 28px;
+  }
+
+  .hero-public {
+    margin-bottom: 18px;
+  }
+
+  .hero-copy {
+    display: grid;
+    gap: 10px;
+  }
+
   .detail-panel {
     inset: 12px;
     width: min(100% - 24px, 760px);
@@ -820,7 +836,53 @@ input[readonly] {
 
   .hero h1 {
     max-width: none;
-    font-size: clamp(2.2rem, 10vw, 3.4rem);
+    margin: 4px 0 8px;
+    font-size: clamp(1.95rem, 9vw, 2.95rem);
+    line-height: 0.98;
+  }
+
+  .eyebrow,
+  .panel-kicker,
+  .panel-meta,
+  .hero-metric span,
+  .search-summary {
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+  }
+
+  .hero-text {
+    font-size: 0.98rem;
+    line-height: 1.45;
+  }
+
+  .searchbar {
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .searchbar input,
+  .searchbar .button {
+    padding-top: 13px;
+    padding-bottom: 13px;
+  }
+
+  .search-summary {
+    margin: 2px 0 0;
+  }
+
+  .hero-panel {
+    gap: 10px;
+  }
+
+  .hero-metric {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .hero-metric strong {
+    margin-top: 6px;
+    font-size: 0.94rem;
+    line-height: 1.35;
   }
 
   .score-grid,
