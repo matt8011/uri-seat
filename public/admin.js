@@ -144,7 +144,7 @@ function renderAuth() {
   const user = state.session;
   const isAdmin = Boolean(user?.isAdmin);
 
-  elements.adminNavLabel.textContent = user ? 'Logout' : 'Login';
+  elements.adminNavLabel.textContent = user ? 'Admin' : 'Login';
   elements.signOutButton.classList.toggle('hidden', !user);
   elements.adminWorkspace.classList.toggle('hidden', !isAdmin);
 
@@ -152,6 +152,7 @@ function renderAuth() {
     elements.authStatus.textContent = 'Google Auth is not configured yet.';
     elements.authHint.textContent = 'Set GOOGLE_CLIENT_ID, SESSION_SECRET, and ADMIN_EMAILS on the server to enable admin access.';
     elements.googleMount.classList.add('hidden');
+    elements.googleMount.classList.remove('is-ready');
     return;
   }
 
@@ -168,9 +169,11 @@ function renderAuth() {
   }
 
   const showGoogleButton = !user;
-  elements.googleMount.classList.toggle('hidden', !showGoogleButton);
   if (showGoogleButton) {
     renderGoogleButton();
+  } else {
+    elements.googleMount.classList.add('hidden');
+    elements.googleMount.classList.remove('is-ready');
   }
 }
 
@@ -315,7 +318,22 @@ function renderGoogleButton() {
     return;
   }
 
+  elements.googleMount.classList.add('hidden');
+  elements.googleMount.classList.remove('is-ready');
   elements.googleMount.innerHTML = '';
+
+  const revealWhenReady = () => {
+    if (!elements.googleMount.childElementCount) {
+      return;
+    }
+    elements.googleMount.classList.remove('hidden');
+    elements.googleMount.classList.add('is-ready');
+    observer.disconnect();
+  };
+
+  const observer = new MutationObserver(revealWhenReady);
+  observer.observe(elements.googleMount, { childList: true, subtree: true });
+
   window.google.accounts.id.initialize({
     client_id: state.config.googleClientId,
     callback: handleCredentialResponse
@@ -327,6 +345,7 @@ function renderGoogleButton() {
     shape: 'pill',
     text: 'signin_with'
   });
+  revealWhenReady();
   state.authReady = true;
 }
 
@@ -335,6 +354,8 @@ elements.signOutButton.addEventListener('click', async () => {
   state.session = null;
   state.authReady = false;
   elements.googleMount.innerHTML = '';
+  elements.googleMount.classList.add('hidden');
+  elements.googleMount.classList.remove('is-ready');
   clearForm();
   renderAuth();
   renderAdminTable();

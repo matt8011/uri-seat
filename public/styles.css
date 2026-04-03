@@ -491,6 +491,17 @@ input[readonly] {
 .google-mount {
   min-height: 40px;
   margin-bottom: 14px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.google-mount.is-ready {
+  display: inline-flex;
+  align-items: center;
+}
+
+.google-mount > div {
+  max-width: 100%;
 }
 
 .entry-form,
