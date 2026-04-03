@@ -352,9 +352,21 @@ input[readonly] {
   margin: 0;
 }
 
+.detail-layout {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
 .score-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.score-grid-primary {
+  width: 100%;
+  gap: 14px;
+  align-items: start;
 }
 
 .score-cell {
@@ -362,6 +374,18 @@ input[readonly] {
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(36, 49, 39, 0.08);
+}
+
+.score-cell-sustainability {
+  width: min(100%, 320px);
+  padding: 18px;
+  text-align: center;
+}
+
+.score-cell-environment {
+  display: grid;
+  gap: 12px;
+  align-content: start;
 }
 
 .score-cell span {
@@ -373,6 +397,35 @@ input[readonly] {
 
 .score-cell strong {
   font-size: 1.15rem;
+}
+
+.score-cell-environment > strong {
+  display: block;
+  min-height: 1.5em;
+}
+
+.score-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.score-subcell {
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(36, 79, 56, 0.06);
+  border: 1px solid rgba(36, 49, 39, 0.08);
+}
+
+.score-subcell span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+}
+
+.score-subcell strong {
+  font-size: 1rem;
 }
 
 .auth-status {
@@ -577,6 +630,10 @@ input[readonly] {
 
   .score-grid,
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .score-subgrid {
     grid-template-columns: 1fr;
   }
 

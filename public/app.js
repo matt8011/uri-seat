@@ -94,51 +94,78 @@ function renderDetail() {
 
   elements.detailTitle.textContent = item.name;
   const sustainabilityPalette = getSustainabilityPalette(item.sustainability_index);
+  const taggedRecipeCount = (item.tagged_recipes || []).length;
   elements.detailContent.innerHTML = `
     <p class="detail-copy">
       Last updated ${escapeHtml(formatDateTime(item.updated_at))}.
     </p>
-    <div class="score-grid">
+    <div class="detail-layout">
       <div
-        class="score-cell"
+        class="score-cell score-cell-sustainability"
         style="background:${escapeHtml(sustainabilityPalette.background)};border:1px solid ${escapeHtml(sustainabilityPalette.border)};color:${escapeHtml(sustainabilityPalette.text)};"
       >
         <span>Sustainability Index</span>
         <strong>${escapeHtml(formatMetric(item.sustainability_index))}</strong>
       </div>
-      <div class="score-cell">
-        <span>Nutrition Composite Score</span>
-        <strong>${escapeHtml(formatMetric(item.nutrition_composite_score))}</strong>
-      </div>
-      <div class="score-cell">
-        <span>Environmental Composite Score</span>
-        <strong>${escapeHtml(formatMetric(item.environmental_composite_score))}</strong>
-      </div>
-      <div class="score-cell">
-        <span>Water Use Score</span>
-        <strong>${escapeHtml(formatMetric(item.water_use_score))}</strong>
-      </div>
-      <div class="score-cell">
-        <span>Nitrogen Use Score</span>
-        <strong>${escapeHtml(formatMetric(item.nitrogen_use_score))}</strong>
-      </div>
-      <div class="score-cell">
-        <span>Carbon Use Score</span>
-        <strong>${escapeHtml(formatMetric(item.carbon_use_score))}</strong>
-      </div>
-      <div class="score-cell">
-        <span>Land Use Score</span>
-        <strong>${escapeHtml(formatMetric(item.land_use_score))}</strong>
-      </div>
-      <div class="score-cell">
-        <span>Tagged Recipes</span>
-        <strong>${escapeHtml(String((item.tagged_recipes || []).length))}</strong>
+      <div class="score-grid score-grid-primary">
+        <div class="score-cell score-cell-environment">
+          <span>Nutrition Composite Score</span>
+          <strong>${escapeHtml(formatMetric(item.nutrition_composite_score))}</strong>
+          <div class="score-subgrid">
+            <div class="score-subcell">
+              <span>Protein</span>
+              <strong>${escapeHtml(formatMetric(item.protein))}</strong>
+            </div>
+            <div class="score-subcell">
+              <span>Fiber</span>
+              <strong>${escapeHtml(formatMetric(item.fiber))}</strong>
+            </div>
+            <div class="score-subcell">
+              <span>Calcium</span>
+              <strong>${escapeHtml(formatMetric(item.calcium))}</strong>
+            </div>
+            <div class="score-subcell">
+              <span>Iron</span>
+              <strong>${escapeHtml(formatMetric(item.iron))}</strong>
+            </div>
+            <div class="score-subcell">
+              <span>Saturated Fat</span>
+              <strong>${escapeHtml(formatMetric(item.saturated_fat))}</strong>
+            </div>
+            <div class="score-subcell">
+              <span>Sodium</span>
+              <strong>${escapeHtml(formatMetric(item.sodium))}</strong>
+            </div>
+          </div>
+        </div>
+        <div class="score-cell score-cell-environment">
+          <span>Environmental Composite Score</span>
+          <strong>${escapeHtml(formatMetric(item.environmental_composite_score))}</strong>
+          <div class="score-subgrid">
+            <div class="score-subcell">
+              <span>Water Use</span>
+              <strong>${escapeHtml(formatMetric(item.water_use_score))}</strong>
+            </div>
+            <div class="score-subcell">
+              <span>Nitrogen Use</span>
+              <strong>${escapeHtml(formatMetric(item.nitrogen_use_score))}</strong>
+            </div>
+            <div class="score-subcell">
+              <span>Carbon Use</span>
+              <strong>${escapeHtml(formatMetric(item.carbon_use_score))}</strong>
+            </div>
+            <div class="score-subcell">
+              <span>Land Use</span>
+              <strong>${escapeHtml(formatMetric(item.land_use_score))}</strong>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div>
-      <p class="panel-kicker">Tagged recipes</p>
+      <p class="panel-kicker">Tagged recipes (${escapeHtml(String(taggedRecipeCount))})</p>
       <div class="detail-tags">
-        ${(item.tagged_recipes || []).length
+        ${taggedRecipeCount
           ? item.tagged_recipes.map((recipe) => `<span class="pill">${escapeHtml(recipe)}</span>`).join('')
           : '<span class="detail-copy">No recipe tags yet.</span>'}
       </div>
