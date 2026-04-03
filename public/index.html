@@ -72,12 +72,15 @@
           <p id="emptyState" class="empty-state hidden">No items matched that search.</p>
         </section>
 
-        <aside class="panel detail-panel">
+        <aside id="detailPanel" class="panel detail-panel" aria-live="polite">
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Info</p>
               <h2 id="detailTitle">Select an entry</h2>
             </div>
+            <button id="detailClose" class="detail-close hidden" type="button" aria-label="Close item details">
+              ×
+            </button>
           </div>
           <div id="detailContent" class="detail-content">
             <p>Choose a card to inspect the currently visible public metrics and recipe tags.</p>
@@ -86,6 +89,8 @@
       </section>
     </main>
   </div>
+
+  <button id="detailBackdrop" class="detail-backdrop hidden" type="button" aria-label="Close item details"></button>
 
   <script type="module" src="/app.js"></script>
 </body>

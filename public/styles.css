@@ -362,6 +362,34 @@ input[readonly] {
   overflow: hidden;
 }
 
+.detail-close,
+.detail-backdrop {
+  display: none;
+}
+
+.detail-close {
+  appearance: none;
+  border: 0;
+  background: rgba(36, 79, 56, 0.08);
+  color: var(--primary);
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.detail-close:hover {
+  background: rgba(36, 79, 56, 0.14);
+}
+
+.detail-backdrop {
+  border: 0;
+  padding: 0;
+  background: rgba(20, 25, 21, 0.42);
+}
+
 .detail-copy {
   margin: 0;
 }
@@ -606,14 +634,42 @@ input[readonly] {
   }
 
   .detail-panel {
-    position: static;
-    max-height: none;
-    overflow: visible;
+    display: none;
+    position: fixed;
+    inset: 20px 16px;
+    width: min(100% - 32px, 760px);
+    margin: auto;
+    height: calc(100vh - 40px);
+    max-height: calc(100vh - 40px);
+    overflow: hidden;
+    z-index: 50;
+  }
+
+  .detail-panel.is-open {
+    display: grid;
+  }
+
+  .detail-backdrop {
+    position: fixed;
+    inset: 0;
+    display: block;
+    z-index: 40;
   }
 
   .detail-content {
-    overflow: visible;
-    padding-right: 0;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+
+  .detail-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  body.detail-panel-mobile-open {
+    overflow: hidden;
   }
 
   .form-grid {
@@ -641,10 +697,17 @@ input[readonly] {
 
   .hero,
   .panel-catalog,
-  .detail-panel,
   .auth-panel,
   .admin-panel,
   .import-panel {
+    padding: 20px;
+  }
+
+  .detail-panel {
+    inset: 12px;
+    width: min(100% - 24px, 760px);
+    height: calc(100vh - 24px);
+    max-height: calc(100vh - 24px);
     padding: 20px;
   }
 

@@ -9,8 +9,11 @@ import {
 const state = {
   items: [],
   selectedItemId: null,
-  searchQuery: ''
+  searchQuery: '',
+  detailPanelOpen: false
 };
+
+const compactDetailMedia = window.matchMedia('(max-width: 1080px)');
 
 const elements = {
   searchForm: document.getElementById('searchForm'),
@@ -18,9 +21,32 @@ const elements = {
   searchSummary: document.getElementById('searchSummary'),
   resultsGrid: document.getElementById('resultsGrid'),
   emptyState: document.getElementById('emptyState'),
+  detailPanel: document.getElementById('detailPanel'),
+  detailClose: document.getElementById('detailClose'),
+  detailBackdrop: document.getElementById('detailBackdrop'),
   detailTitle: document.getElementById('detailTitle'),
   detailContent: document.getElementById('detailContent')
 };
+
+function isCompactDetailMode() {
+  return compactDetailMedia.matches;
+}
+
+function syncDetailPanelVisibility() {
+  const hasSelectedItem = state.items.some((item) => item.id === state.selectedItemId);
+  const compactMode = isCompactDetailMode();
+  const shouldShowOverlay = compactMode && state.detailPanelOpen && hasSelectedItem;
+
+  elements.detailPanel.classList.toggle('is-open', shouldShowOverlay);
+  elements.detailBackdrop.classList.toggle('hidden', !shouldShowOverlay);
+  elements.detailClose.classList.toggle('hidden', !compactMode);
+  document.body.classList.toggle('detail-panel-mobile-open', shouldShowOverlay);
+}
+
+function closeDetailPanel() {
+  state.detailPanelOpen = false;
+  syncDetailPanelVisibility();
+}
 
 async function loadItems(query = state.searchQuery) {
   state.searchQuery = query;
@@ -34,6 +60,7 @@ async function loadItems(query = state.searchQuery) {
 
   if (!state.items.some((item) => item.id === state.selectedItemId)) {
     state.selectedItemId = state.items[0]?.id ?? null;
+    state.detailPanelOpen = false;
   }
 
   renderResults();
@@ -74,8 +101,10 @@ function renderResults() {
 
     card.addEventListener('click', () => {
       state.selectedItemId = item.id;
+      state.detailPanelOpen = isCompactDetailMode();
       renderResults();
       renderDetail();
+      elements.detailContent.scrollTop = 0;
     });
 
     elements.resultsGrid.appendChild(card);
@@ -89,6 +118,7 @@ function renderDetail() {
     elements.detailTitle.textContent = 'Select an entry';
     elements.detailContent.innerHTML =
       '<p>Choose a card to inspect the currently visible public metrics and recipe tags.</p>';
+    syncDetailPanelVisibility();
     return;
   }
 
@@ -171,11 +201,29 @@ function renderDetail() {
       </div>
     </div>
   `;
+  syncDetailPanelVisibility();
 }
 
 elements.searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await loadItems(elements.searchInput.value);
+});
+
+elements.detailClose.addEventListener('click', closeDetailPanel);
+elements.detailBackdrop.addEventListener('click', closeDetailPanel);
+
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && isCompactDetailMode() && state.detailPanelOpen) {
+    closeDetailPanel();
+  }
+});
+
+compactDetailMedia.addEventListener('change', (event) => {
+  if (!event.matches) {
+    state.detailPanelOpen = false;
+    elements.detailContent.scrollTop = 0;
+  }
+  syncDetailPanelVisibility();
 });
 
 async function bootstrap() {
