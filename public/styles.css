@@ -751,6 +751,14 @@ input[readonly] {
     flex-direction: column;
   }
 
+  .file-picker,
+  .checkbox-row,
+  .import-controls > .button {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+
   .hero,
   .panel-catalog,
   .auth-panel,
@@ -787,6 +795,7 @@ input[readonly] {
 
   .checkbox-row {
     align-items: start;
+    align-self: stretch;
   }
 
   .admin-table-wrap {
