@@ -738,8 +738,10 @@ input[readonly] {
 
   .topbar {
     position: static;
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
   }
 
   .topbar-actions,
@@ -749,6 +751,47 @@ input[readonly] {
   .table-actions,
   .import-controls {
     flex-direction: column;
+  }
+
+  .topbar-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-left: auto;
+  }
+
+  .brand {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .brand strong {
+    font-size: clamp(0.98rem, 4.4vw, 1.2rem);
+    line-height: 1.08;
+  }
+
+  .brand small {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  .topbar-note {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+  }
+
+  .topbar-actions .button {
+    padding: 11px 14px;
   }
 
   .file-picker,
