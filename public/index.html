@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Harvest Index</title>
+  <title>Home | URI Sustainable Eating Assessment Tool</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,15 +13,15 @@
   <div class="site-shell">
     <header class="topbar">
       <a class="brand" href="/">
-        <span class="brand-mark">HI</span>
+        <span class="brand-mark">SEAT</span>
         <span>
-          <strong>Harvest Index</strong>
-          <small>URI dining hall sustainability search</small>
+          <strong>URI Sustainable Eating Assessment Tool (SEAT)</strong>
+          <small>Brought to you by URI Nutrition, Computer Science, and Dining</small>
         </span>
       </a>
       <nav class="topbar-actions">
-        <p class="topbar-note">Public catalog</p>
-        <a class="button button-secondary" href="/admin">Admin Login</a>
+        <p class="topbar-note">Search</p>
+        <a class="button button-secondary" href="/admin">Login</a>
       </nav>
     </header>
 
@@ -29,30 +29,32 @@
       <section class="hero hero-public">
         <div class="hero-copy">
           <p class="eyebrow">Sustainable Eating Assessment Tool</p>
-          <h1>Search dining hall food items by name or recipe tags.</h1>
+          <h1>How sustainable was your meal?</h1>
           <p class="hero-text">
-            This public landing page keeps the experience simple. Search the catalog and compare the
-            sustainability, nutrition, and environmental scores currently available for each item.
+			Search by recipe or ingredients to see how sustainable the URI
+			Dining Hall food is.
           </p>
           <form id="searchForm" class="searchbar">
             <label class="sr-only" for="searchInput">Search food item or recipe tag</label>
-            <input id="searchInput" name="q" type="search" placeholder="Search apples, deli turkey, salad..." autocomplete="off">
+            <input id="searchInput" name="q" type="search" placeholder="Search cheeseburger, salad, apple..." autocomplete="off">
             <button class="button button-primary" type="submit">Search</button>
           </form>
           <p id="searchSummary" class="search-summary">Loading catalog...</p>
         </div>
         <aside class="hero-panel">
           <div class="hero-metric">
-            <span>Visible to users</span>
-            <strong>Food name, sustainability index, nutrition composite, environmental composite, and tagged recipes</strong>
+            <span>Sustainability</span>
+            <strong>Find out the sustainability of your meal based on
+			environmental and nutritional factors</strong>
           </div>
           <div class="hero-metric">
-            <span>Search support</span>
-            <strong>Search across food names and recipe tags</strong>
+            <span>Enviromental</span>
+            <strong>Look at the water usage, carbon footprint, nitrogen
+			footprint, and land use</strong>
           </div>
           <div class="hero-metric">
-            <span>Administration</span>
-            <strong>Managed separately through a protected admin page</strong>
+            <span>Nutrition</span>
+            <strong>See various nutrition facts about your food</strong>
           </div>
         </aside>
       </section>
@@ -62,7 +64,7 @@
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Catalog</p>
-              <h2>Dining hall items</h2>
+              <h2>Dining Hall Items</h2>
             </div>
             <p class="panel-meta">Open to all visitors</p>
           </div>
@@ -73,7 +75,7 @@
         <aside class="panel detail-panel">
           <div class="panel-header">
             <div>
-              <p class="panel-kicker">Detail</p>
+              <p class="panel-kicker">Info</p>
               <h2 id="detailTitle">Select an entry</h2>
             </div>
           </div>

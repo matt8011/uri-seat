@@ -158,14 +158,15 @@ function renderAuth() {
   elements.signInButton.classList.remove('hidden');
 
   if (!user) {
-    elements.authStatus.textContent = 'No admin session is active.';
-    elements.authHint.textContent = 'This page is reserved for admins managing food entries and CSV imports.';
+    elements.authStatus.textContent = 'Authorized users only. No session active.';
+    elements.authHint.textContent = 'Sign in to manage the SEAT database.';
   } else if (isAdmin) {
     elements.authStatus.textContent = `Signed in as ${user.name}`;
     elements.authHint.textContent = `${user.email} has admin access.`;
   } else {
     elements.authStatus.textContent = `Signed in as ${user.name}`;
-    elements.authHint.textContent = `${user.email} is authenticated, but this account is not in ADMIN_EMAILS.`;
+    elements.authHint.textContent = `${user.email} is not authorized to manage
+	the database.`;
   }
 
   const showGoogleButton = !user;
