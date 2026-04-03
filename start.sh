@@ -3,20 +3,22 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$ROOT_DIR/.env"
 
-#: "${GOOGLE_CLIENT_ID:asd?Set GOOGLE_CLIENT_ID before running start.sh}"
-#: "${SESSION_SECRET:asd?Set SESSION_SECRET before running start.sh}"
-#: "${ADMIN_EMAILS:michael.tedeschi99@gmail.com?Set ADMIN_EMAILS before running start.sh}"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+fi
 
-GOOGLE_CLIENT_ID="567656009387-tugrmd5339ro0pl8ub34gnkgi53srlpk.apps.googleusercontent.com"
-SESSION_SECRET="A/BJQN6CJtGE2w/2SGiZeg+JRaa/NxWjf4nkPz7XGqE="
-ADMIN_EMAILS="michael.tedeschi99@gmail.com"
-
-export GOOGLE_CLIENT_ID
-export SESSION_SECRET
-export ADMIN_EMAILS
+export GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:?Set GOOGLE_CLIENT_ID in the environment or .env before running start.sh}"
+export SESSION_SECRET="${SESSION_SECRET:?Set SESSION_SECRET in the environment or .env before running start.sh}"
+export ADMIN_EMAILS="${ADMIN_EMAILS:?Set ADMIN_EMAILS in the environment or .env before running start.sh}"
+export NODE_ENV="${NODE_ENV:-development}"
 
 PORT="${PORT:-3000}"
+export PORT
 
 cd "$ROOT_DIR"
 exec node server.js

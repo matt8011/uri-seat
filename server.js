@@ -8,8 +8,9 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 
 const PORT = Number(process.env.PORT || 3000);
+const NODE_ENV = process.env.NODE_ENV || 'development';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me-in-production';
+const SESSION_SECRET = process.env.SESSION_SECRET || '';
 const ADMIN_EMAILS = new Set(
   (process.env.ADMIN_EMAILS || '')
     .split(',')
@@ -22,6 +23,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const SESSION_COOKIE = 'food_app_session';
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 14;
 const MAX_ITEMS = 200;
+const MIN_SESSION_SECRET_LENGTH = 32;
 const FOOD_COLUMNS = [
   'id',
   'name',
@@ -316,13 +318,38 @@ function buildCookie(name, value, maxAgeSeconds = null) {
     'HttpOnly',
     'SameSite=Lax'
   ];
-  if (process.env.NODE_ENV === 'production') {
+  if (NODE_ENV === 'production') {
     parts.push('Secure');
   }
   if (maxAgeSeconds !== null) {
     parts.push(`Max-Age=${maxAgeSeconds}`);
   }
   return parts.join('; ');
+}
+
+function validateConfiguration() {
+  const problems = [];
+
+  if (!GOOGLE_CLIENT_ID) {
+    problems.push('GOOGLE_CLIENT_ID must be configured.');
+  }
+  if (!SESSION_SECRET) {
+    problems.push('SESSION_SECRET must be configured.');
+  } else if (SESSION_SECRET.length < MIN_SESSION_SECRET_LENGTH) {
+    problems.push(
+      `SESSION_SECRET must be at least ${MIN_SESSION_SECRET_LENGTH} characters long.`
+    );
+  }
+  if (ADMIN_EMAILS.size === 0) {
+    problems.push('ADMIN_EMAILS must include at least one admin email address.');
+  }
+  if (!Number.isFinite(PORT) || PORT <= 0) {
+    problems.push('PORT must be a positive number.');
+  }
+
+  if (problems.length > 0) {
+    throw new Error(`Invalid server configuration:\n- ${problems.join('\n- ')}`);
+  }
 }
 
 function serializeUser(user) {
@@ -1379,6 +1406,8 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 500, { error: 'Unexpected server error.' });
   }
 });
+
+validateConfiguration();
 
 initializeDatabase()
   .then(() => {

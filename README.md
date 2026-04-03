@@ -12,19 +12,28 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 
 ## Run
 
-1. Make sure the admin user Gmail addresses are set in `start.sh` as a comma-separated string
-2. Set a valid Google client ID in `start.sh`
-3. Set a strong `SESSION_SECRET` in `start.sh`
-4. Execute the server with `./start.sh`
-5. Open `http://localhost:3000` for the public site
-6. Open `http://localhost:3000/admin` for the admin workspace
+1. Copy `.env.example` to `.env` if you do not already have one
+2. Set `GOOGLE_CLIENT_ID`, `SESSION_SECRET`, and `ADMIN_EMAILS` in `.env` or your shell environment
+3. Execute the server with `./start.sh`
+4. Open `http://localhost:3000` for the public site
+5. Open `http://localhost:3000/admin` for the admin workspace
 
 ## Environment Variables
 
 - `GOOGLE_CLIENT_ID`: OAuth client ID used by Google Identity Services on the frontend and verified by the server
 - `SESSION_SECRET`: Secret used to sign the session cookie
 - `ADMIN_EMAILS`: Comma-separated list of Google account emails allowed to create, update, delete, and import entries
+- `NODE_ENV`: Set to `production` in deployment so cookies are marked `Secure`
 - `PORT`: Optional HTTP port. Defaults to `3000`
+
+## Deployment Notes
+
+- Do not commit live credentials in `start.sh`; the server now loads them from environment variables or a local `.env`
+- `.env` is gitignored; use `.env.example` as the template for new environments
+- Set `NODE_ENV=production` on the host so session cookies include the `Secure` flag
+- Keep `SESSION_SECRET` only in your host's secret manager or environment settings, not in source control
+- Rotate the current session secret before or immediately after launch if it has ever been shared outside your machine
+- Add your production domain to the Google OAuth client configuration before going live
 
 ## Notes
 
