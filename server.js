@@ -22,94 +22,6 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const SESSION_COOKIE = 'food_app_session';
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 14;
 const MAX_ITEMS = 200;
-const FOOD_CLASSIFICATIONS = [
-  'Wheat & Rye (Bread)',
-  'Maize (Meal)',
-  'Barley (Beer)',
-  'Oatmeal',
-  'Rice',
-  'Potatoes',
-  'Cassava',
-  'Cane Sugar',
-  'Beet Sugar',
-  'Other Pulses',
-  'Peas',
-  'Nuts',
-  'Groundnuts',
-  'Soymilk',
-  'Tofu',
-  'Soybean Oil',
-  'Palm Oil',
-  'Sunflower Oil',
-  'Rapeseed Oil',
-  'Olive Oil',
-  'Tomatoes',
-  'Onions & Leeks',
-  'Root Vegetables',
-  'Brassicas',
-  'Other Vegetables',
-  'Citrus Fruit',
-  'Bananas',
-  'Apples',
-  'Berries & Grapes',
-  'Wine',
-  'Other Fruit',
-  'Coffee',
-  'Dark Chocolate',
-  'Bovine Meat (beef herd)',
-  'Bovine Meat (dairy herd)',
-  'Lamb & Mutton',
-  'Pig Meat',
-  'Poultry Meat',
-  'Milk',
-  'Cheese',
-  'Eggs',
-  'Fish (farmed)',
-  'Crustaceans (farmed)'
-];
-const ENVIRONMENTAL_COMPOSITE_SCORES = {
-  'Wheat & Rye (Bread)': 2.833333333,
-  'Maize (Meal)': 4,
-  'Barley (Beer)': 5,
-  Oatmeal: 2.5,
-  Rice: 1.833333333,
-  Potatoes: 5,
-  Cassava: 5,
-  'Cane Sugar': 2.666666667,
-  'Beet Sugar': 4.166666667,
-  'Other Pulses': 2.166666667,
-  Peas: 3.166666667,
-  Nuts: 2,
-  Groundnuts: 2.166666667,
-  Soymilk: 5,
-  Tofu: 4.333333333,
-  'Soybean Oil': 2.166666667,
-  'Rapeseed Oil': 2.5,
-  'Olive Oil': 1.166666667,
-  Tomatoes: 4,
-  'Onions & Leeks': 5,
-  'Root Vegetables': 5,
-  Brassicas: 4.833333333,
-  'Other Vegetables': 5,
-  'Citrus Fruit': 5,
-  Bananas: 5,
-  Apples: 4.333333333,
-  'Berries & Grapes': 3.333333333,
-  Wine: 4.666666667,
-  'Other Fruit': 4.666666667,
-  Coffee: 2.333333333,
-  'Dark Chocolate': 1.833333333,
-  'Bovine Meat (beef herd)': 1,
-  'Bovine Meat (dairy herd)': 1,
-  'Lamb & Mutton': 1,
-  'Pig Meat': 1,
-  'Poultry Meat': 1.333333333,
-  Milk: 2.166666667,
-  Cheese: 1,
-  Eggs: 1.666666667,
-  'Fish (farmed)': 1.166666667,
-  'Crustaceans (farmed)': 1.5
-};
 const FOOD_COLUMNS = [
   'id',
   'name',
@@ -131,10 +43,15 @@ const FOOD_COLUMNS = [
   'sodium',
   'nutrient_rich_food_index',
   'nutrition_composite_score',
-  'food_classification',
+  'freshwater_withdrawals',
+  'stress_weighted_water_use',
+  'acidifying_emissions',
+  'eutrophying_emissions',
+  'ghg_emissions',
+  'land_use',
   'environmental_composite_score'
 ];
-const REQUIRED_NUMERIC_FIELDS = [
+const NUTRITION_NUMERIC_FIELDS = [
   ['protein', 'Protein'],
   ['fiber', 'Fiber'],
   ['vitamin_a', 'Vitamin A'],
@@ -147,6 +64,14 @@ const REQUIRED_NUMERIC_FIELDS = [
   ['saturated_fat', 'Saturated Fat'],
   ['added_sugar', 'Added Sugar'],
   ['sodium', 'Sodium']
+];
+const ENVIRONMENTAL_NUMERIC_FIELDS = [
+  ['freshwater_withdrawals', '2-1 Freshwater Withdrawals'],
+  ['stress_weighted_water_use', '2-2 Stress-Weighted Water Use'],
+  ['acidifying_emissions', '2-3 Acidifying Emissions'],
+  ['eutrophying_emissions', '2-4 Eutrophying Emissions'],
+  ['ghg_emissions', '2-5 GHG Emissions'],
+  ['land_use', '2-6 Land Use']
 ];
 
 function sqlEscape(value) {
@@ -213,13 +138,16 @@ function createFoodEntriesTableSql() {
       sodium REAL,
       nutrient_rich_food_index REAL,
       nutrition_composite_score REAL,
-      food_classification TEXT NOT NULL,
+      freshwater_withdrawals REAL,
+      stress_weighted_water_use REAL,
+      acidifying_emissions REAL,
+      eutrophying_emissions REAL,
+      ghg_emissions REAL,
+      land_use REAL,
       environmental_composite_score REAL
     );
 
     CREATE INDEX IF NOT EXISTS idx_food_entries_name ON food_entries(name);
-    CREATE INDEX IF NOT EXISTS idx_food_entries_food_classification
-      ON food_entries(food_classification);
   `;
 }
 
@@ -437,11 +365,6 @@ function normalizeRecipes(value) {
   return [];
 }
 
-function normalizeClassification(value) {
-  const classification = String(value || '').trim();
-  return FOOD_CLASSIFICATIONS.includes(classification) ? classification : '';
-}
-
 function valueOrZero(value) {
   return value === null || value === undefined ? 0 : Number(value);
 }
@@ -486,13 +409,85 @@ function calculateNutritionCompositeScore(index) {
   return 5;
 }
 
-function calculateEnvironmentalCompositeScore(classification) {
-  if (!classification) {
+function calculateEnvironmentalCompositeScore(item) {
+  const values = {
+    freshwater_withdrawals: item.freshwater_withdrawals,
+    stress_weighted_water_use: item.stress_weighted_water_use,
+    acidifying_emissions: item.acidifying_emissions,
+    eutrophying_emissions: item.eutrophying_emissions,
+    ghg_emissions: item.ghg_emissions,
+    land_use: item.land_use
+  };
+
+  if (Object.values(values).some((value) => value === null || value === undefined)) {
     return null;
   }
 
-  const value = ENVIRONMENTAL_COMPOSITE_SCORES[classification];
-  return value === undefined ? null : roundMetric(value);
+  const scoreFreshwaterWithdrawals = Number(values.freshwater_withdrawals) > 549.9
+    ? 1
+    : Number(values.freshwater_withdrawals) > 377.1
+      ? 2
+      : Number(values.freshwater_withdrawals) > 263.7
+        ? 3
+        : Number(values.freshwater_withdrawals) > 161.4
+          ? 4
+          : 5;
+  const scoreStressWeightedWaterUse = Number(values.stress_weighted_water_use) > 18475
+    ? 1
+    : Number(values.stress_weighted_water_use) > 12806
+      ? 2
+      : Number(values.stress_weighted_water_use) > 9079
+        ? 3
+        : Number(values.stress_weighted_water_use) > 5601
+          ? 4
+          : 5;
+  const scoreAcidifyingEmissions = Number(values.acidifying_emissions) > 34.4
+    ? 1
+    : Number(values.acidifying_emissions) > 22.6
+      ? 2
+      : Number(values.acidifying_emissions) > 15.4
+        ? 3
+        : Number(values.acidifying_emissions) > 9.3
+          ? 4
+          : 5;
+  const scoreEutrophyingEmissions = Number(values.eutrophying_emissions) > 28
+    ? 1
+    : Number(values.eutrophying_emissions) > 16.3
+      ? 2
+      : Number(values.eutrophying_emissions) > 10.2
+        ? 3
+        : Number(values.eutrophying_emissions) > 6.1
+          ? 4
+          : 5;
+  const scoreGhgEmissions = Number(values.ghg_emissions) > 5.8
+    ? 1
+    : Number(values.ghg_emissions) > 3.4
+      ? 2
+      : Number(values.ghg_emissions) > 2.2
+        ? 3
+        : Number(values.ghg_emissions) > 1.4
+          ? 4
+          : 5;
+  const scoreLandUse = Number(values.land_use) > 13
+    ? 1
+    : Number(values.land_use) > 5.9
+      ? 2
+      : Number(values.land_use) > 3.7
+        ? 3
+        : Number(values.land_use) > 2.1
+          ? 4
+          : 5;
+
+  return roundMetric(
+    (
+      scoreFreshwaterWithdrawals +
+      scoreStressWeightedWaterUse +
+      scoreAcidifyingEmissions +
+      scoreEutrophyingEmissions +
+      scoreGhgEmissions +
+      scoreLandUse
+    ) / 6
+  );
 }
 
 function calculateSustainabilityIndex(nutritionCompositeScore, environmentalCompositeScore) {
@@ -520,7 +515,7 @@ function withCalculatedNutrition(item) {
 
 function withCalculatedFields(item) {
   const nutritionValues = withCalculatedNutrition(item);
-  const environmentalCompositeScore = calculateEnvironmentalCompositeScore(item.food_classification);
+  const environmentalCompositeScore = calculateEnvironmentalCompositeScore(item);
 
   return {
     ...nutritionValues,
@@ -561,7 +556,16 @@ function deserializeRow(row) {
       row.nutrient_rich_food_index === null ? null : Number(row.nutrient_rich_food_index),
     nutrition_composite_score:
       row.nutrition_composite_score === null ? null : Number(row.nutrition_composite_score),
-    food_classification: row.food_classification,
+    freshwater_withdrawals:
+      row.freshwater_withdrawals === null ? null : Number(row.freshwater_withdrawals),
+    stress_weighted_water_use:
+      row.stress_weighted_water_use === null ? null : Number(row.stress_weighted_water_use),
+    acidifying_emissions:
+      row.acidifying_emissions === null ? null : Number(row.acidifying_emissions),
+    eutrophying_emissions:
+      row.eutrophying_emissions === null ? null : Number(row.eutrophying_emissions),
+    ghg_emissions: row.ghg_emissions === null ? null : Number(row.ghg_emissions),
+    land_use: row.land_use === null ? null : Number(row.land_use),
     environmental_composite_score:
       row.environmental_composite_score === null
         ? null
@@ -572,9 +576,11 @@ function deserializeRow(row) {
 function validateFoodPayload(body) {
   const name = String(body.name || '').trim();
   const taggedRecipes = normalizeRecipes(body.tagged_recipes);
-  const foodClassification = normalizeClassification(body.food_classification);
   const normalizedNumbers = Object.fromEntries(
-    REQUIRED_NUMERIC_FIELDS.map(([key]) => [key, normalizeNumber(body[key])])
+    [...NUTRITION_NUMERIC_FIELDS, ...ENVIRONMENTAL_NUMERIC_FIELDS].map(([key]) => [
+      key,
+      normalizeNumber(body[key])
+    ])
   );
 
   if (!name) {
@@ -585,11 +591,7 @@ function validateFoodPayload(body) {
     return { error: 'Tagged recipes are required.' };
   }
 
-  if (!foodClassification) {
-    return { error: 'A valid food classification is required.' };
-  }
-
-  for (const [key, label] of REQUIRED_NUMERIC_FIELDS) {
+  for (const [key, label] of [...NUTRITION_NUMERIC_FIELDS, ...ENVIRONMENTAL_NUMERIC_FIELDS]) {
     if (normalizedNumbers[key] === null) {
       return { error: `${label} is required.` };
     }
@@ -614,7 +616,12 @@ function validateFoodPayload(body) {
       sodium: normalizedNumbers.sodium,
       nutrient_rich_food_index: null,
       nutrition_composite_score: null,
-      food_classification: foodClassification,
+      freshwater_withdrawals: normalizedNumbers.freshwater_withdrawals,
+      stress_weighted_water_use: normalizedNumbers.stress_weighted_water_use,
+      acidifying_emissions: normalizedNumbers.acidifying_emissions,
+      eutrophying_emissions: normalizedNumbers.eutrophying_emissions,
+      ghg_emissions: normalizedNumbers.ghg_emissions,
+      land_use: normalizedNumbers.land_use,
       environmental_composite_score: null
     })
   };
@@ -660,7 +667,12 @@ function foodInsertSql(item, timestamp, explicitCreatedAt = null) {
       sodium,
       nutrient_rich_food_index,
       nutrition_composite_score,
-      food_classification,
+      freshwater_withdrawals,
+      stress_weighted_water_use,
+      acidifying_emissions,
+      eutrophying_emissions,
+      ghg_emissions,
+      land_use,
       environmental_composite_score
     ) VALUES (
       ${sqlValue(item.name)},
@@ -682,7 +694,12 @@ function foodInsertSql(item, timestamp, explicitCreatedAt = null) {
       ${sqlValue(item.sodium)},
       ${sqlValue(item.nutrient_rich_food_index)},
       ${sqlValue(item.nutrition_composite_score)},
-      ${sqlValue(item.food_classification)},
+      ${sqlValue(item.freshwater_withdrawals)},
+      ${sqlValue(item.stress_weighted_water_use)},
+      ${sqlValue(item.acidifying_emissions)},
+      ${sqlValue(item.eutrophying_emissions)},
+      ${sqlValue(item.ghg_emissions)},
+      ${sqlValue(item.land_use)},
       ${sqlValue(item.environmental_composite_score)}
     );
   `;
@@ -709,7 +726,12 @@ function foodUpdateSql(id, item, timestamp) {
         sodium = ${sqlValue(item.sodium)},
         nutrient_rich_food_index = ${sqlValue(item.nutrient_rich_food_index)},
         nutrition_composite_score = ${sqlValue(item.nutrition_composite_score)},
-        food_classification = ${sqlValue(item.food_classification)},
+        freshwater_withdrawals = ${sqlValue(item.freshwater_withdrawals)},
+        stress_weighted_water_use = ${sqlValue(item.stress_weighted_water_use)},
+        acidifying_emissions = ${sqlValue(item.acidifying_emissions)},
+        eutrophying_emissions = ${sqlValue(item.eutrophying_emissions)},
+        ghg_emissions = ${sqlValue(item.ghg_emissions)},
+        land_use = ${sqlValue(item.land_use)},
         environmental_composite_score = ${sqlValue(item.environmental_composite_score)}
     WHERE id = ${sqlValue(id)};
   `;
@@ -724,7 +746,6 @@ async function queryItems(search = '') {
         FROM food_entries
         WHERE lower(name) LIKE ${sqlValue(like)}
            OR lower(tagged_recipes) LIKE ${sqlValue(like)}
-           OR lower(food_classification) LIKE ${sqlValue(like)}
         ORDER BY name COLLATE NOCASE ASC, id ASC
         LIMIT ${MAX_ITEMS};
       `
@@ -996,7 +1017,12 @@ function csvRecordToPayload(record) {
     saturated_fat: getCsvValue(record, ['saturated_fat']),
     added_sugar: getCsvValue(record, ['added_sugar']),
     sodium: getCsvValue(record, ['sodium']),
-    food_classification: getCsvValue(record, ['food_classification', 'classification'])
+    freshwater_withdrawals: getCsvValue(record, ['freshwater_withdrawals']),
+    stress_weighted_water_use: getCsvValue(record, ['stress_weighted_water_use']),
+    acidifying_emissions: getCsvValue(record, ['acidifying_emissions']),
+    eutrophying_emissions: getCsvValue(record, ['eutrophying_emissions']),
+    ghg_emissions: getCsvValue(record, ['ghg_emissions']),
+    land_use: getCsvValue(record, ['land_use'])
   };
 }
 
@@ -1129,13 +1155,6 @@ async function handleApi(req, res, pathname, searchParams) {
   if (pathname === '/api/session' && method === 'GET') {
     return sendJson(res, 200, {
       user: await getCurrentUser(req)
-    });
-  }
-
-  if (pathname === '/api/meta' && method === 'GET') {
-    return sendJson(res, 200, {
-      classifications: FOOD_CLASSIFICATIONS,
-      environmentalCompositeScores: ENVIRONMENTAL_COMPOSITE_SCORES
     });
   }
 

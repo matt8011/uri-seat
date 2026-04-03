@@ -1,11 +1,11 @@
 import {
   api,
+  calculateEnvironmentalCompositeScore,
   calculateNutrientRichFoodIndex,
   calculateNutritionCompositeScore,
   calculateSustainabilityIndex,
   escapeHtml,
   formatDateTime,
-  formatMetric,
   getSustainabilityPalette,
   parseRecipes
 } from '/shared.js';
@@ -22,7 +22,36 @@ const editableNumberFields = [
   'potassium',
   'saturated_fat',
   'added_sugar',
+  'sodium',
+  'freshwater_withdrawals',
+  'stress_weighted_water_use',
+  'acidifying_emissions',
+  'eutrophying_emissions',
+  'ghg_emissions',
+  'land_use'
+];
+
+const nutritionNumberFields = [
+  'protein',
+  'fiber',
+  'vitamin_a',
+  'vitamin_c',
+  'vitamin_e',
+  'calcium',
+  'iron',
+  'magnesium',
+  'potassium',
+  'saturated_fat',
+  'added_sugar',
   'sodium'
+];
+const environmentalNumberFields = [
+  'freshwater_withdrawals',
+  'stress_weighted_water_use',
+  'acidifying_emissions',
+  'eutrophying_emissions',
+  'ghg_emissions',
+  'land_use'
 ];
 
 const readOnlyFields = [
@@ -36,8 +65,6 @@ const state = {
   config: null,
   session: null,
   items: [],
-  classifications: [],
-  environmentalCompositeScores: {},
   authReady: false
 };
 
@@ -54,7 +81,6 @@ const elements = {
   adminMessage: document.getElementById('adminMessage'),
   adminTableBody: document.getElementById('adminTableBody'),
   adminTableSummary: document.getElementById('adminTableSummary'),
-  foodClassification: document.getElementById('food_classification'),
   csvFile: document.getElementById('csvFile'),
   replaceExisting: document.getElementById('replaceExisting'),
   importButton: document.getElementById('importButton'),
@@ -93,13 +119,6 @@ function setImportMessage(message, isError = false) {
   elements.importMessage.style.color = isError ? '#a93d30' : '';
 }
 
-function populateClassifications() {
-  elements.foodClassification.innerHTML = `
-    <option value="">Select a classification</option>
-    ${state.classifications.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('')}
-  `;
-}
-
 async function loadConfig() {
   state.config = await api('/api/config');
 }
@@ -108,14 +127,6 @@ async function loadSession() {
   const payload = await api('/api/session');
   state.session = payload.user;
   renderAuth();
-}
-
-async function loadMeta() {
-  const payload = await api('/api/meta');
-  state.classifications = payload.classifications || [];
-  state.environmentalCompositeScores = payload.environmentalCompositeScores || {};
-  populateClassifications();
-  updateDerivedPreview();
 }
 
 async function loadItems() {
@@ -173,7 +184,7 @@ function renderAdminTable() {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${escapeHtml(item.name)}</td>
-      <td>${escapeHtml(item.food_classification)}</td>
+      <td>${escapeHtml(String(item.ghg_emissions ?? ''))}</td>
       <td>${escapeHtml((item.tagged_recipes || []).join(', '))}</td>
       <td>${escapeHtml(formatDateTime(item.updated_at))}</td>
       <td>
@@ -191,7 +202,6 @@ function populateForm(item) {
   elements.entryId.value = item.id;
   document.getElementById('name').value = item.name;
   document.getElementById('tagged_recipes').value = (item.tagged_recipes || []).join(', ');
-  document.getElementById('food_classification').value = item.food_classification;
 
   for (const field of editableNumberFields) {
     document.getElementById(field).value = item[field] ?? '';
@@ -211,7 +221,6 @@ function populateForm(item) {
 function clearForm() {
   elements.entryId.value = '';
   elements.entryForm.reset();
-  populateClassifications();
   elements.cancelEdit.classList.add('hidden');
   for (const field of readOnlyFields) {
     document.getElementById(field).value = '';
@@ -223,8 +232,7 @@ function clearForm() {
 function buildPayload() {
   const payload = {
     name: document.getElementById('name').value.trim(),
-    tagged_recipes: parseRecipes(document.getElementById('tagged_recipes').value),
-    food_classification: elements.foodClassification.value
+    tagged_recipes: parseRecipes(document.getElementById('tagged_recipes').value)
   };
 
   for (const field of editableNumberFields) {
@@ -235,33 +243,38 @@ function buildPayload() {
 }
 
 function updateDerivedPreview() {
-  const classification = elements.foodClassification.value;
-  const environmentalCompositeScore = state.environmentalCompositeScores[classification];
-  setReadOnlyFieldValue(
-    'environmental_composite_score',
-    environmentalCompositeScore === undefined ? null : environmentalCompositeScore
+  const hasAllNutritionValues = nutritionNumberFields.every(
+    (field) => getNumberValue(field) !== null
   );
-
-  const hasAllNutritionValues = editableNumberFields.every(
+  const hasAllEnvironmentalValues = environmentalNumberFields.every(
     (field) => getNumberValue(field) !== null
   );
 
-  if (!hasAllNutritionValues) {
+  let nutritionCompositeScore = null;
+  if (hasAllNutritionValues) {
+    const nutritionPayload = Object.fromEntries(
+      nutritionNumberFields.map((field) => [field, getNumberValue(field)])
+    );
+    const nutrientRichFoodIndex = calculateNutrientRichFoodIndex(nutritionPayload);
+    nutritionCompositeScore = calculateNutritionCompositeScore(nutrientRichFoodIndex);
+    setReadOnlyFieldValue('nutrient_rich_food_index', nutrientRichFoodIndex);
+    setReadOnlyFieldValue('nutrition_composite_score', nutritionCompositeScore);
+  } else {
     setReadOnlyFieldValue('nutrient_rich_food_index', null);
     setReadOnlyFieldValue('nutrition_composite_score', null);
-    setReadOnlyFieldValue('sustainability_index', null);
-    updateSustainabilityFieldStyle(null);
-    return;
   }
 
-  const nutritionPayload = Object.fromEntries(
-    editableNumberFields.map((field) => [field, getNumberValue(field)])
-  );
-  const nutrientRichFoodIndex = calculateNutrientRichFoodIndex(nutritionPayload);
-  const nutritionCompositeScore = calculateNutritionCompositeScore(nutrientRichFoodIndex);
+  let environmentalCompositeScore = null;
+  if (hasAllEnvironmentalValues) {
+    const environmentalPayload = Object.fromEntries(
+      environmentalNumberFields.map((field) => [field, getNumberValue(field)])
+    );
+    environmentalCompositeScore = calculateEnvironmentalCompositeScore(environmentalPayload);
+    setReadOnlyFieldValue('environmental_composite_score', environmentalCompositeScore);
+  } else {
+    setReadOnlyFieldValue('environmental_composite_score', null);
+  }
 
-  setReadOnlyFieldValue('nutrient_rich_food_index', nutrientRichFoodIndex);
-  setReadOnlyFieldValue('nutrition_composite_score', nutritionCompositeScore);
   const sustainabilityIndex = calculateSustainabilityIndex(
     nutritionCompositeScore,
     environmentalCompositeScore
@@ -321,10 +334,6 @@ elements.signOutButton.addEventListener('click', async () => {
   clearForm();
   renderAuth();
   renderAdminTable();
-});
-
-elements.foodClassification.addEventListener('change', () => {
-  updateDerivedPreview();
 });
 
 for (const field of editableNumberFields) {
@@ -425,7 +434,6 @@ elements.importButton.addEventListener('click', async () => {
 async function bootstrap() {
   try {
     await loadConfig();
-    await loadMeta();
     await loadSession();
     if (state.session?.isAdmin) {
       await loadItems();

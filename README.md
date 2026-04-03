@@ -28,11 +28,11 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 
 ## Notes
 
-- Visitors can search by food item name, food classification, or tagged recipe without logging in
+- Visitors can search by food item name or tagged recipe without logging in
 - Admin-only actions now live on the separate `/admin` page
-- The current food schema is centered on general details, nutrition fields, and environmental classification
+- The current food schema is centered on general details, nutrition fields, and raw environmental input metrics
 - `nutrient_rich_food_index` and `nutrition_composite_score` are now calculated automatically from the nutrition fields, with the full NRFI formula multiplied by `100`
-- `environmental_composite_score` is now calculated automatically from the selected food classification using the static workbook mapping
+- `environmental_composite_score` is now calculated automatically by scoring each environmental input on a 1-5 scale, summing those six scores, and dividing by 6
 - `sustainability_index` is now calculated automatically as `nutrition_composite_score + environmental_composite_score`
 - The server verifies Google sign-in credentials against Google's `tokeninfo` endpoint, so outbound network access is required for login
 - The app still depends on the `sqlite3` CLI being available on the host machine

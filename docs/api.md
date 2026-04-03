@@ -55,22 +55,6 @@ Example response:
 }
 ```
 
-### `GET /api/meta`
-
-Returns the list of allowed food classifications.
-
-Example response:
-
-```json
-{
-  "classifications": [
-    "Rice",
-    "Tofu",
-    "Cheese"
-  ]
-}
-```
-
 ### `POST /api/auth/google`
 
 Completes Google sign-in.
@@ -93,7 +77,7 @@ Returns up to 200 food entries.
 
 Optional query string:
 
-- `q`: search term matched against food name, tagged recipes, and food classification
+- `q`: search term matched against food name and tagged recipes
 
 Example:
 
@@ -127,14 +111,20 @@ Request body:
   "saturated_fat": 0.8,
   "added_sugar": 1.2,
   "sodium": 430,
-  "food_classification": "Tofu"
+  "freshwater_withdrawals": 149,
+  "stress_weighted_water_use": 5113,
+  "acidifying_emissions": 6.7,
+  "eutrophying_emissions": 6.2,
+  "ghg_emissions": 3.2,
+  "land_use": 3.5
 }
 ```
 
 Notes:
 
 - `nutrient_rich_food_index` and `nutrition_composite_score` are calculated automatically by the server
-- `environmental_composite_score` is also calculated automatically by the server from `food_classification`
+- the environmental side now stores raw user-entered measurements instead of using a static classification lookup
+- `environmental_composite_score` is calculated automatically by scoring each environmental factor from `1` to `5` using threshold cutoffs, then averaging the six scores
 - `sustainability_index` is calculated automatically as `nutrition_composite_score + environmental_composite_score`
 
 ### `PUT /api/items/:id`
@@ -163,7 +153,7 @@ Supported request styles:
 
 ```json
 {
-  "csvText": "name,tagged_recipes,protein,fiber,vitamin_a,vitamin_c,vitamin_e,calcium,iron,magnesium,potassium,saturated_fat,added_sugar,sodium,food_classification\nTofu Stir Fry,\"stir fry,vegan entree\",12.5,4.2,1.1,2.4,0.4,120,2.3,35,240,0.8,1.2,430,Tofu",
+  "csvText": "name,tagged_recipes,protein,fiber,vitamin_a,vitamin_c,vitamin_e,calcium,iron,magnesium,potassium,saturated_fat,added_sugar,sodium,freshwater_withdrawals,stress_weighted_water_use,acidifying_emissions,eutrophying_emissions,ghg_emissions,land_use\nTofu Stir Fry,\"stir fry,vegan entree\",12.5,4.2,1.1,2.4,0.4,120,2.3,35,240,0.8,1.2,430,149,5113,6.7,6.2,3.2,3.5",
   "replaceExisting": true
 }
 ```
@@ -192,12 +182,16 @@ Expected CSV headers:
 - `saturated_fat`
 - `added_sugar`
 - `sodium`
-- `food_classification`
+- `freshwater_withdrawals`
+- `stress_weighted_water_use`
+- `acidifying_emissions`
+- `eutrophying_emissions`
+- `ghg_emissions`
+- `land_use`
 
 Accepted aliases:
 
 - `food_item_name` for `name`
-- `classification` for `food_classification`
 - `recipe_tags` for `tagged_recipes`
 
 ## Current Food Entry Shape
@@ -214,11 +208,29 @@ The Nutrition Composite Score is then assigned from the Nutrient Rich Food Index
 - `4` when `18.2 < ind <= 30.5`
 - `5` when `ind > 30.5`
 
-The Environmental Composite Score is assigned by a static server-side mapping from `food_classification` using the workbook data from the `environmental-ind` sheet.
+The environmental system now stores these user-entered raw measurements directly:
 
-The Sustainability Index is assigned as:
+- `freshwater_withdrawals`
+- `stress_weighted_water_use`
+- `acidifying_emissions`
+- `eutrophying_emissions`
+- `ghg_emissions`
+- `land_use`
 
-`nutrition_composite_score + environmental_composite_score`
+The Environmental Composite Score is calculated by:
+
+1. Converting each environmental input into a score from `1` to `5`
+2. Summing those six scores
+3. Dividing by `6`
+
+Environmental factor scoring thresholds:
+
+- `freshwater_withdrawals`: `1` if `> 549.9`, `2` if `> 377.1`, `3` if `> 263.7`, `4` if `> 161.4`, else `5`
+- `stress_weighted_water_use`: `1` if `> 18475`, `2` if `> 12806`, `3` if `> 9079`, `4` if `> 5601`, else `5`
+- `acidifying_emissions`: `1` if `> 34.4`, `2` if `> 22.6`, `3` if `> 15.4`, `4` if `> 9.3`, else `5`
+- `eutrophying_emissions`: `1` if `> 28`, `2` if `> 16.3`, `3` if `> 10.2`, `4` if `> 6.1`, else `5`
+- `ghg_emissions`: `1` if `> 5.8`, `2` if `> 3.4`, `3` if `> 2.2`, `4` if `> 1.4`, else `5`
+- `land_use`: `1` if `> 13`, `2` if `> 5.9`, `3` if `> 3.7`, `4` if `> 2.1`, else `5`
 
 Responses currently include:
 
@@ -244,7 +256,12 @@ Responses currently include:
   "sodium": 430,
   "nutrient_rich_food_index": 53.12,
   "nutrition_composite_score": 5,
-  "food_classification": "Tofu",
+  "freshwater_withdrawals": 149,
+  "stress_weighted_water_use": 5113,
+  "acidifying_emissions": 6.7,
+  "eutrophying_emissions": 6.2,
+  "ghg_emissions": 3.2,
+  "land_use": 3.5,
   "environmental_composite_score": 4.3333
 }
 ```

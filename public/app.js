@@ -55,7 +55,6 @@ function renderResults() {
     const sustainabilityPalette = getSustainabilityPalette(item.sustainability_index);
     card.innerHTML = `
       <div class="result-topline">
-        <span class="pill">${escapeHtml(item.food_classification)}</span>
         <span
           class="score-chip"
           style="background:${escapeHtml(sustainabilityPalette.background)};border:1px solid ${escapeHtml(sustainabilityPalette.border)};color:${escapeHtml(sustainabilityPalette.text)};"
