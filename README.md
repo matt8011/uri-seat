@@ -25,6 +25,7 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 - `ADMIN_EMAILS`: Comma-separated list of Google account emails allowed to create, update, delete, and import entries
 - `NODE_ENV`: Set to `production` in deployment so cookies are marked `Secure`
 - `PORT`: Optional HTTP port. Defaults to `3000`
+- `DB_PATH`: Optional path to the SQLite database file. Useful for persistent volumes in production.
 
 ## Deployment Notes
 
@@ -34,6 +35,23 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 - Keep `SESSION_SECRET` only in your host's secret manager or environment settings, not in source control
 - Rotate the current session secret before or immediately after launch if it has ever been shared outside your machine
 - Add your production domain to the Google OAuth client configuration before going live
+
+## Railway Deployment
+
+1. Push this repo to GitHub
+2. Create a new Railway project from that GitHub repo
+3. Add a Railway volume and mount it at `/data`
+4. In Railway service variables, set:
+   - `GOOGLE_CLIENT_ID`
+   - `SESSION_SECRET`
+   - `ADMIN_EMAILS`
+   - `NODE_ENV=production`
+   - `DB_PATH=/data/data.sqlite`
+5. Deploy the service
+6. Add the Railway domain to your Google OAuth authorized JavaScript origins
+7. Test `/` and `/admin` on the Railway URL before attaching a custom domain
+
+The app now supports first-run seeding for Railway volumes: if `DB_PATH` points at a new empty mounted volume, it will copy the bundled `data.sqlite` into that location on startup so your current local app state can be published without manual database bootstrapping.
 
 ## Notes
 

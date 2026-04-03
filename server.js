@@ -18,7 +18,9 @@ const ADMIN_EMAILS = new Set(
     .filter(Boolean)
 );
 
-const DB_PATH = path.join(__dirname, 'data.sqlite');
+const DEFAULT_DB_PATH = path.join(__dirname, 'data.sqlite');
+const DB_PATH = path.resolve(process.env.DB_PATH || DEFAULT_DB_PATH);
+const SEED_DB_PATH = path.resolve(process.env.SEED_DB_PATH || DEFAULT_DB_PATH);
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const SESSION_COOKIE = 'food_app_session';
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 14;
@@ -117,6 +119,15 @@ async function allSql(sql) {
   return runSql(sql, true);
 }
 
+function ensureDatabasePath() {
+  fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+
+  // Seed a new persistent database from the bundled app snapshot on first deploy.
+  if (DB_PATH !== SEED_DB_PATH && !fs.existsSync(DB_PATH) && fs.existsSync(SEED_DB_PATH)) {
+    fs.copyFileSync(SEED_DB_PATH, DB_PATH);
+  }
+}
+
 function createFoodEntriesTableSql() {
   return `
     CREATE TABLE IF NOT EXISTS food_entries (
@@ -177,6 +188,8 @@ async function ensureFoodEntriesSchema() {
 }
 
 async function initializeDatabase() {
+  ensureDatabasePath();
+
   await runSql(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -345,6 +358,9 @@ function validateConfiguration() {
   }
   if (!Number.isFinite(PORT) || PORT <= 0) {
     problems.push('PORT must be a positive number.');
+  }
+  if (!path.isAbsolute(DB_PATH)) {
+    problems.push('DB_PATH must resolve to an absolute filesystem path.');
   }
 
   if (problems.length > 0) {
