@@ -21,6 +21,7 @@ const elements = {
   searchSummary: document.getElementById('searchSummary'),
   resultsGrid: document.getElementById('resultsGrid'),
   emptyState: document.getElementById('emptyState'),
+  catalogSection: document.getElementById('catalogSection'),
   detailPanel: document.getElementById('detailPanel'),
   detailClose: document.getElementById('detailClose'),
   detailBackdrop: document.getElementById('detailBackdrop'),
@@ -207,6 +208,7 @@ function renderDetail() {
 elements.searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await loadItems(elements.searchInput.value);
+  elements.catalogSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 elements.detailClose.addEventListener('click', closeDetailPanel);
