@@ -1,5 +1,9 @@
 :root {
   --bg: #f4efe5;
+  --page-bg:
+    radial-gradient(circle at top left, rgba(203, 124, 76, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(36, 79, 56, 0.18), transparent 30%),
+    linear-gradient(180deg, #f7f1e7 0%, #f1eadb 100%);
   --surface: rgba(255, 251, 244, 0.86);
   --surface-strong: #fffdf8;
   --text: #243127;
@@ -21,6 +25,8 @@
 
 html {
   scroll-behavior: smooth;
+  background: var(--page-bg);
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -28,10 +34,8 @@ body {
   min-height: 100vh;
   color: var(--text);
   font-family: 'Manrope', sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(203, 124, 76, 0.18), transparent 34%),
-    radial-gradient(circle at top right, rgba(36, 79, 56, 0.18), transparent 30%),
-    linear-gradient(180deg, #f7f1e7 0%, #f1eadb 100%);
+  background: var(--page-bg);
+  overscroll-behavior-y: none;
 }
 
 body::before {
@@ -360,7 +364,7 @@ input[readonly] {
 .detail-panel {
   align-self: start;
   position: sticky;
-  top: 108px;
+  top: 24px;
   margin-bottom: 24px;
 }
 
