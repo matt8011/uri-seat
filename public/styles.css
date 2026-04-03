@@ -353,19 +353,15 @@ input[readonly] {
 .detail-content {
   display: grid;
   gap: 18px;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 6px;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .detail-panel {
   align-self: start;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
   position: sticky;
   top: 108px;
-  max-height: calc(100vh - 124px);
-  overflow: hidden;
+  margin-bottom: 24px;
 }
 
 .detail-close,
