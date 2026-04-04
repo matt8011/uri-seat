@@ -360,6 +360,7 @@ input[readonly] {
   align-content: start;
   overflow: visible;
   padding-right: 0;
+  overscroll-behavior: contain;
 }
 
 .detail-panel {
@@ -740,20 +741,21 @@ input[readonly] {
   .detail-panel {
     inset: 12px;
     display: none;
-    grid-template-rows: auto minmax(0, 1fr);
     width: min(100% - 24px, 760px);
     height: calc(100vh - 24px);
     max-height: calc(100vh - 24px);
     padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .detail-panel.is-open {
-    display: grid;
+    display: block;
   }
 
   .detail-content {
-    overflow-y: auto;
-    padding-right: 6px;
+    overflow: visible;
+    padding-right: 0;
   }
 }
 
@@ -856,15 +858,16 @@ input[readonly] {
   .detail-panel {
     inset: 12px;
     display: none;
-    grid-template-rows: auto minmax(0, 1fr);
     width: min(100% - 24px, 760px);
     height: calc(100vh - 24px);
     max-height: calc(100vh - 24px);
     padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .detail-panel.is-open {
-    display: grid;
+    display: block;
   }
 
   .hero h1 {
@@ -916,6 +919,11 @@ input[readonly] {
     margin-top: 6px;
     font-size: 0.94rem;
     line-height: 1.35;
+  }
+
+  .detail-content {
+    overflow: visible;
+    padding-right: 0;
   }
 
   .score-grid,

@@ -14,6 +14,9 @@ const state = {
 };
 
 const compactDetailMedia = window.matchMedia('(max-width: 1080px)');
+let lockedScrollY = 0;
+let isDocumentScrollLocked = false;
+let wasOverlayVisible = false;
 
 const elements = {
   searchForm: document.getElementById('searchForm'),
@@ -33,6 +36,39 @@ function isCompactDetailMode() {
   return compactDetailMedia.matches;
 }
 
+function setDocumentScrollLock(locked) {
+  if (locked === isDocumentScrollLocked) {
+    return;
+  }
+
+  if (locked) {
+    lockedScrollY = window.scrollY;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${lockedScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+  } else {
+    const previousScrollBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = 'auto';
+    document.documentElement.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    document.body.style.overflow = '';
+    window.scrollTo(0, lockedScrollY);
+    requestAnimationFrame(() => {
+      document.documentElement.style.scrollBehavior = previousScrollBehavior;
+    });
+  }
+
+  isDocumentScrollLocked = locked;
+}
+
 function syncDetailPanelVisibility() {
   const hasSelectedItem = state.items.some((item) => item.id === state.selectedItemId);
   const compactMode = isCompactDetailMode();
@@ -42,6 +78,16 @@ function syncDetailPanelVisibility() {
   elements.detailBackdrop.classList.toggle('hidden', !shouldShowOverlay);
   elements.detailClose.classList.toggle('hidden', !compactMode);
   document.body.classList.toggle('detail-panel-mobile-open', shouldShowOverlay);
+  setDocumentScrollLock(shouldShowOverlay);
+
+  if (shouldShowOverlay && !wasOverlayVisible) {
+    requestAnimationFrame(() => {
+      elements.detailPanel.scrollTop = 0;
+      elements.detailContent.scrollTop = 0;
+    });
+  }
+
+  wasOverlayVisible = shouldShowOverlay;
 }
 
 function closeDetailPanel() {
@@ -226,6 +272,15 @@ compactDetailMedia.addEventListener('change', (event) => {
     elements.detailContent.scrollTop = 0;
   }
   syncDetailPanelVisibility();
+});
+
+window.addEventListener('resize', () => {
+  if (document.body.classList.contains('detail-panel-mobile-open')) {
+    requestAnimationFrame(() => {
+      elements.detailPanel.scrollTop = 0;
+      elements.detailContent.scrollTop = 0;
+    });
+  }
 });
 
 async function bootstrap() {
