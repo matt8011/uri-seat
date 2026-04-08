@@ -1,4 +1,4 @@
-# URI Sustainable Eating Assessment Tool
+# URI Sustainable Eating Assessment Tool (1.0)
 
 A lightweight Node + SQLite web app for searching and administering URI dining hall food entries.
 
