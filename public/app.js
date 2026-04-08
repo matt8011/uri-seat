@@ -10,10 +10,12 @@ const state = {
   items: [],
   selectedItemId: null,
   searchQuery: '',
-  detailPanelOpen: false
+  detailPanelOpen: false,
+  recipeScores: new Map()
 };
 
 const compactDetailMedia = window.matchMedia('(max-width: 1080px)');
+const touchRecipePillMedia = window.matchMedia('(hover: none), (pointer: coarse)');
 let lockedScrollY = 0;
 let isDocumentScrollLocked = false;
 let wasOverlayVisible = false;
@@ -92,7 +94,70 @@ function syncDetailPanelVisibility() {
 
 function closeDetailPanel() {
   state.detailPanelOpen = false;
+  closeRecipePills();
   syncDetailPanelVisibility();
+}
+
+function normalizeRecipeKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function updateRecipeScores(recipeScores) {
+  state.recipeScores = new Map(
+    Object.entries(recipeScores || {}).map(([recipeName, score]) => [
+      normalizeRecipeKey(recipeName),
+      score ?? null
+    ])
+  );
+}
+
+function getRecipeSustainabilityScore(recipeName) {
+  return state.recipeScores.get(normalizeRecipeKey(recipeName)) ?? null;
+}
+
+function getRecipeSustainabilityLabel(score) {
+  return score === null || score === undefined
+    ? 'Sustainability Index pending'
+    : `Sustainability Index ${formatMetric(score)}`;
+}
+
+function renderRecipePills(recipes, limit = recipes.length) {
+  return recipes.slice(0, limit).map((recipe) => {
+    const score = getRecipeSustainabilityScore(recipe);
+    const palette = getSustainabilityPalette(score);
+
+    return `
+      <button
+        type="button"
+        class="pill recipe-pill"
+        data-recipe-pill
+        aria-expanded="false"
+        aria-label="${escapeHtml(`${recipe}: ${getRecipeSustainabilityLabel(score)}`)}"
+        style="--recipe-pill-background:${escapeHtml(palette.background)};--recipe-pill-border:${escapeHtml(palette.border)};--recipe-pill-color:${escapeHtml(palette.text)};"
+      >
+        <span class="recipe-pill-label">${escapeHtml(recipe)}</span>
+        <span class="recipe-pill-tooltip" aria-hidden="true">
+          <span class="recipe-pill-kicker">Sustainability Index</span>
+          <strong>${escapeHtml(formatMetric(score))}</strong>
+        </span>
+      </button>
+    `;
+  }).join('');
+}
+
+function setRecipePillOpen(pill, open) {
+  pill.dataset.open = open ? 'true' : 'false';
+  pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function closeRecipePills(scope = document, except = null) {
+  for (const pill of scope.querySelectorAll('[data-recipe-pill][data-open="true"]')) {
+    if (pill !== except) {
+      setRecipePillOpen(pill, false);
+    }
+  }
 }
 
 async function loadItems(query = state.searchQuery) {
@@ -104,6 +169,7 @@ async function loadItems(query = state.searchQuery) {
 
   const payload = await api(`/api/items${params.toString() ? `?${params}` : ''}`);
   state.items = payload.items;
+  updateRecipeScores(payload.recipeScores);
 
   if (!state.items.some((item) => item.id === state.selectedItemId)) {
     state.selectedItemId = state.items[0]?.id ?? null;
@@ -142,11 +208,12 @@ function renderResults() {
         Environmental ${escapeHtml(formatMetric(item.environmental_composite_score))}
       </p>
       <div class="card-tags">
-        ${(item.tagged_recipes || []).slice(0, 4).map((recipe) => `<span class="pill">${escapeHtml(recipe)}</span>`).join('')}
+        ${renderRecipePills(item.tagged_recipes || [], 4)}
       </div>
     `;
 
     card.addEventListener('click', () => {
+      closeRecipePills();
       state.selectedItemId = item.id;
       state.detailPanelOpen = isCompactDetailMode();
       renderResults();
@@ -243,12 +310,30 @@ function renderDetail() {
       <p class="panel-kicker">Tagged recipes (${escapeHtml(String(taggedRecipeCount))})</p>
       <div class="detail-tags">
         ${taggedRecipeCount
-          ? item.tagged_recipes.map((recipe) => `<span class="pill">${escapeHtml(recipe)}</span>`).join('')
+          ? renderRecipePills(item.tagged_recipes)
           : '<span class="detail-copy">No recipe tags yet.</span>'}
       </div>
     </div>
   `;
   syncDetailPanelVisibility();
+}
+
+function handleRecipePillClick(event) {
+  const pill = event.target.closest('[data-recipe-pill]');
+  if (!pill) {
+    return;
+  }
+
+  event.stopPropagation();
+
+  if (!touchRecipePillMedia.matches) {
+    return;
+  }
+
+  event.preventDefault();
+  const shouldOpen = pill.dataset.open !== 'true';
+  closeRecipePills(document, pill);
+  setRecipePillOpen(pill, shouldOpen);
 }
 
 elements.searchForm.addEventListener('submit', async (event) => {
@@ -257,10 +342,24 @@ elements.searchForm.addEventListener('submit', async (event) => {
   elements.catalogSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
+elements.resultsGrid.addEventListener('click', handleRecipePillClick, true);
+elements.detailContent.addEventListener('click', handleRecipePillClick, true);
 elements.detailClose.addEventListener('click', closeDetailPanel);
 elements.detailBackdrop.addEventListener('click', closeDetailPanel);
 
+document.addEventListener('click', (event) => {
+  if (event.target.closest('[data-recipe-pill]')) {
+    return;
+  }
+
+  closeRecipePills();
+});
+
 window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeRecipePills();
+  }
+
   if (event.key === 'Escape' && isCompactDetailMode() && state.detailPanelOpen) {
     closeDetailPanel();
   }
