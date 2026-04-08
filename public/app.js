@@ -12,10 +12,12 @@ const state = {
   recipes: [],
   selectedRecipeId: null,
   searchQuery: '',
-  detailPanelOpen: false
+  detailPanelOpen: false,
+  recipeScores: new Map()
 };
 
 const compactDetailMedia = window.matchMedia('(max-width: 1080px)');
+const touchRecipePillMedia = window.matchMedia('(hover: none), (pointer: coarse)');
 let lockedScrollY = 0;
 let isDocumentScrollLocked = false;
 let wasOverlayVisible = false;
@@ -94,6 +96,7 @@ function syncDetailPanelVisibility() {
 
 function closeDetailPanel() {
   state.detailPanelOpen = false;
+  closeRecipePills();
   syncDetailPanelVisibility();
 }
 
@@ -291,16 +294,48 @@ function renderDetail() {
   syncDetailPanelVisibility();
 }
 
+function handleRecipePillClick(event) {
+  const pill = event.target.closest('[data-recipe-pill]');
+  if (!pill) {
+    return;
+  }
+
+  event.stopPropagation();
+
+  if (!touchRecipePillMedia.matches) {
+    return;
+  }
+
+  event.preventDefault();
+  const shouldOpen = pill.dataset.open !== 'true';
+  closeRecipePills(document, pill);
+  setRecipePillOpen(pill, shouldOpen);
+}
+
 elements.searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await loadRecipes(elements.searchInput.value);
   elements.catalogSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
+elements.resultsGrid.addEventListener('click', handleRecipePillClick, true);
+elements.detailContent.addEventListener('click', handleRecipePillClick, true);
 elements.detailClose.addEventListener('click', closeDetailPanel);
 elements.detailBackdrop.addEventListener('click', closeDetailPanel);
 
+document.addEventListener('click', (event) => {
+  if (event.target.closest('[data-recipe-pill]')) {
+    return;
+  }
+
+  closeRecipePills();
+});
+
 window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeRecipePills();
+  }
+
   if (event.key === 'Escape' && isCompactDetailMode() && state.detailPanelOpen) {
     closeDetailPanel();
   }

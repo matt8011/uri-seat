@@ -26,6 +26,7 @@ const SESSION_COOKIE = 'food_app_session';
 const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 14;
 const MAX_ITEMS = 200;
 const MIN_SESSION_SECRET_LENGTH = 32;
+const SQLITE_BUSY_TIMEOUT_MS = Number(process.env.SQLITE_BUSY_TIMEOUT_MS || 5000);
 const FOOD_COLUMNS = [
   'id',
   'name',
@@ -114,6 +115,7 @@ function sqlValue(value) {
 
 async function runSql(sql, jsonMode = false) {
   const args = [];
+  args.push('-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`);
   if (jsonMode) {
     args.push('-json');
   }
@@ -137,6 +139,12 @@ async function getSql(sql) {
 
 async function allSql(sql) {
   return runSql(sql, true);
+}
+
+function normalizeRecipeKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
 }
 
 function ensureDatabasePath() {
@@ -260,6 +268,7 @@ async function ensureRecipesSchema() {
 async function initializeDatabase() {
   ensureDatabasePath();
 
+  await runSql('PRAGMA journal_mode = WAL;');
   await runSql(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1023,6 +1032,34 @@ async function queryRecipes(search = '') {
   return rows.map(deserializeRecipeRow);
 }
 
+async function queryRecipeScoresByNames(recipeNames) {
+  const uniqueRecipeNames = Array.from(
+    new Set(
+      (recipeNames || [])
+        .map((recipeName) => String(recipeName || '').trim())
+        .filter(Boolean)
+    )
+  );
+
+  if (!uniqueRecipeNames.length) {
+    return {};
+  }
+
+  const rows = await allSql(`
+    SELECT name, sustainability_index
+    FROM recipes
+    WHERE lower(name) IN (${uniqueRecipeNames.map((name) => sqlValue(normalizeRecipeKey(name))).join(', ')})
+    ORDER BY name COLLATE NOCASE ASC;
+  `);
+
+  return Object.fromEntries(
+    rows.map((row) => [
+      normalizeRecipeKey(row.name),
+      row.sustainability_index === null ? null : Number(row.sustainability_index)
+    ])
+  );
+}
+
 function buildRecipeRows(items, timestamp) {
   const groupedRecipes = new Map();
 
@@ -1612,9 +1649,11 @@ async function handleApi(req, res, pathname, searchParams) {
 
   if (pathname === '/api/items' && method === 'GET') {
     const search = searchParams.get('q') || '';
+    const items = await queryItems(search);
     return sendJson(res, 200, {
-      items: await queryItems(search),
-      query: search
+      items,
+      query: search,
+      recipeScores: await queryRecipeScoresByNames(items.flatMap((item) => item.tagged_recipes || []))
     });
   }
 
