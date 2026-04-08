@@ -6,9 +6,11 @@ import {
   getSustainabilityPalette
 } from '/shared.js';
 
+const PREVIEW_INGREDIENT_LIMIT = 4;
+
 const state = {
-  items: [],
-  selectedItemId: null,
+  recipes: [],
+  selectedRecipeId: null,
   searchQuery: '',
   detailPanelOpen: false
 };
@@ -70,9 +72,9 @@ function setDocumentScrollLock(locked) {
 }
 
 function syncDetailPanelVisibility() {
-  const hasSelectedItem = state.items.some((item) => item.id === state.selectedItemId);
+  const hasSelectedRecipe = state.recipes.some((recipe) => recipe.id === state.selectedRecipeId);
   const compactMode = isCompactDetailMode();
-  const shouldShowOverlay = compactMode && state.detailPanelOpen && hasSelectedItem;
+  const shouldShowOverlay = compactMode && state.detailPanelOpen && hasSelectedRecipe;
 
   elements.detailPanel.classList.toggle('is-open', shouldShowOverlay);
   elements.detailBackdrop.classList.toggle('hidden', !shouldShowOverlay);
@@ -95,18 +97,53 @@ function closeDetailPanel() {
   syncDetailPanelVisibility();
 }
 
-async function loadItems(query = state.searchQuery) {
+function renderIngredientPreview(ingredients) {
+  const visibleIngredients = ingredients.slice(0, PREVIEW_INGREDIENT_LIMIT);
+  const overflowCount = Math.max(ingredients.length - visibleIngredients.length, 0);
+
+  return `
+    ${visibleIngredients
+      .map((ingredient) => `<span class="pill">${escapeHtml(ingredient.name)}</span>`)
+      .join('')}
+    ${overflowCount ? `<span class="pill pill-muted">+${escapeHtml(String(overflowCount))} more</span>` : ''}
+  `;
+}
+
+function renderIngredientScorePill(ingredient) {
+  const ingredientName = escapeHtml(ingredient.name);
+  const sustainabilityLabel = escapeHtml(formatMetric(ingredient.sustainability_index));
+  const sustainabilityPalette = getSustainabilityPalette(ingredient.sustainability_index);
+
+  return `
+    <button
+      class="pill ingredient-pill"
+      type="button"
+      title="SI ${sustainabilityLabel}"
+      aria-label="${ingredientName} sustainability index ${sustainabilityLabel}"
+    >
+      <span>${ingredientName}</span>
+      <span
+        class="ingredient-pill-score"
+        style="--ingredient-score-bg-start:${escapeHtml(sustainabilityPalette.background)};--ingredient-score-bg-end:${escapeHtml(sustainabilityPalette.border)};--ingredient-score-text:${escapeHtml(sustainabilityPalette.text)};--ingredient-score-border:${escapeHtml(sustainabilityPalette.border)};"
+      >
+        SI ${sustainabilityLabel}
+      </span>
+    </button>
+  `;
+}
+
+async function loadRecipes(query = state.searchQuery) {
   state.searchQuery = query;
   const params = new URLSearchParams();
   if (query.trim()) {
     params.set('q', query.trim());
   }
 
-  const payload = await api(`/api/items${params.toString() ? `?${params}` : ''}`);
-  state.items = payload.items;
+  const payload = await api(`/api/public-recipes${params.toString() ? `?${params}` : ''}`);
+  state.recipes = payload.recipes;
 
-  if (!state.items.some((item) => item.id === state.selectedItemId)) {
-    state.selectedItemId = state.items[0]?.id ?? null;
+  if (!state.recipes.some((recipe) => recipe.id === state.selectedRecipeId)) {
+    state.selectedRecipeId = state.recipes[0]?.id ?? null;
     state.detailPanelOpen = false;
   }
 
@@ -118,36 +155,39 @@ function renderResults() {
   elements.resultsGrid.innerHTML = '';
 
   const summary = state.searchQuery.trim()
-    ? `Showing ${state.items.length} result${state.items.length === 1 ? '' : 's'} for "${state.searchQuery.trim()}".`
-    : `Showing ${state.items.length} catalog entr${state.items.length === 1 ? 'y' : 'ies'}.`;
+    ? `Showing ${state.recipes.length} recipe${state.recipes.length === 1 ? '' : 's'} for "${state.searchQuery.trim()}".`
+    : `Showing ${state.recipes.length} recipe${state.recipes.length === 1 ? '' : 's'} in the catalog.`;
   elements.searchSummary.textContent = summary;
-  elements.emptyState.classList.toggle('hidden', state.items.length !== 0);
+  elements.emptyState.classList.toggle('hidden', state.recipes.length !== 0);
 
-  for (const item of state.items) {
+  for (const recipe of state.recipes) {
     const card = document.createElement('article');
-    card.className = `result-card${item.id === state.selectedItemId ? ' is-active' : ''}`;
-    const sustainabilityPalette = getSustainabilityPalette(item.sustainability_index);
+    card.className = `result-card${recipe.id === state.selectedRecipeId ? ' is-active' : ''}`;
+    const sustainabilityPalette = getSustainabilityPalette(recipe.sustainability_index);
+    const taggedIngredients = recipe.tagged_ingredients || [];
     card.innerHTML = `
       <div class="result-topline">
         <span
           class="score-chip"
           style="background:${escapeHtml(sustainabilityPalette.background)};border:1px solid ${escapeHtml(sustainabilityPalette.border)};color:${escapeHtml(sustainabilityPalette.text)};"
         >
-          Sustainability ${escapeHtml(formatMetric(item.sustainability_index))}
+          Sustainability ${escapeHtml(formatMetric(recipe.sustainability_index))}
         </span>
       </div>
-      <h3 class="result-title">${escapeHtml(item.name)}</h3>
+      <h3 class="result-title">${escapeHtml(recipe.name)}</h3>
       <p class="result-subtitle">
-        Nutrition ${escapeHtml(formatMetric(item.nutrition_composite_score))} ·
-        Environmental ${escapeHtml(formatMetric(item.environmental_composite_score))}
+        Nutrition ${escapeHtml(formatMetric(recipe.nutrition_composite_score))} ·
+        Environmental ${escapeHtml(formatMetric(recipe.environmental_composite_score))}
       </p>
       <div class="card-tags">
-        ${(item.tagged_recipes || []).slice(0, 4).map((recipe) => `<span class="pill">${escapeHtml(recipe)}</span>`).join('')}
+        ${taggedIngredients.length
+          ? renderIngredientPreview(taggedIngredients)
+          : '<span class="detail-copy">No tagged ingredients yet.</span>'}
       </div>
     `;
 
     card.addEventListener('click', () => {
-      state.selectedItemId = item.id;
+      state.selectedRecipeId = recipe.id;
       state.detailPanelOpen = isCompactDetailMode();
       renderResults();
       renderDetail();
@@ -159,22 +199,22 @@ function renderResults() {
 }
 
 function renderDetail() {
-  const item = state.items.find((entry) => entry.id === state.selectedItemId);
+  const recipe = state.recipes.find((entry) => entry.id === state.selectedRecipeId);
 
-  if (!item) {
-    elements.detailTitle.textContent = 'Select an entry';
+  if (!recipe) {
+    elements.detailTitle.textContent = 'Select a recipe';
     elements.detailContent.innerHTML =
-      '<p>Choose a card to inspect the currently visible public metrics and recipe tags.</p>';
+      '<p>Choose a recipe card to inspect the currently visible public metrics and tagged ingredients.</p>';
     syncDetailPanelVisibility();
     return;
   }
 
-  elements.detailTitle.textContent = item.name;
-  const sustainabilityPalette = getSustainabilityPalette(item.sustainability_index);
-  const taggedRecipeCount = (item.tagged_recipes || []).length;
+  elements.detailTitle.textContent = recipe.name;
+  const sustainabilityPalette = getSustainabilityPalette(recipe.sustainability_index);
+  const taggedIngredientCount = (recipe.tagged_ingredients || []).length;
   elements.detailContent.innerHTML = `
     <p class="detail-copy">
-      Last updated ${escapeHtml(formatDateTime(item.updated_at))}.
+      Last updated ${escapeHtml(formatDateTime(recipe.updated_at))}.
     </p>
     <div class="detail-layout">
       <div
@@ -182,69 +222,69 @@ function renderDetail() {
         style="background:${escapeHtml(sustainabilityPalette.background)};border:1px solid ${escapeHtml(sustainabilityPalette.border)};color:${escapeHtml(sustainabilityPalette.text)};"
       >
         <span>Sustainability Index</span>
-        <strong>${escapeHtml(formatMetric(item.sustainability_index))}</strong>
+        <strong>${escapeHtml(formatMetric(recipe.sustainability_index))}</strong>
       </div>
       <div class="score-grid score-grid-primary">
         <div class="score-cell score-cell-environment">
           <span>Nutrition Composite Score</span>
-          <strong>${escapeHtml(formatMetric(item.nutrition_composite_score))}</strong>
+          <strong>${escapeHtml(formatMetric(recipe.nutrition_composite_score))}</strong>
           <div class="score-subgrid">
             <div class="score-subcell">
               <span>Protein</span>
-              <strong>${escapeHtml(formatMetric(item.protein))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.protein))}</strong>
             </div>
             <div class="score-subcell">
               <span>Fiber</span>
-              <strong>${escapeHtml(formatMetric(item.fiber))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.fiber))}</strong>
             </div>
             <div class="score-subcell">
               <span>Calcium</span>
-              <strong>${escapeHtml(formatMetric(item.calcium))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.calcium))}</strong>
             </div>
             <div class="score-subcell">
               <span>Iron</span>
-              <strong>${escapeHtml(formatMetric(item.iron))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.iron))}</strong>
             </div>
             <div class="score-subcell">
               <span>Saturated Fat</span>
-              <strong>${escapeHtml(formatMetric(item.saturated_fat))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.saturated_fat))}</strong>
             </div>
             <div class="score-subcell">
               <span>Sodium</span>
-              <strong>${escapeHtml(formatMetric(item.sodium))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.sodium))}</strong>
             </div>
           </div>
         </div>
         <div class="score-cell score-cell-environment">
           <span>Environmental Composite Score</span>
-          <strong>${escapeHtml(formatMetric(item.environmental_composite_score))}</strong>
+          <strong>${escapeHtml(formatMetric(recipe.environmental_composite_score))}</strong>
           <div class="score-subgrid">
             <div class="score-subcell">
               <span>Water Use</span>
-              <strong>${escapeHtml(formatMetric(item.water_use_score))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.water_use_score))}</strong>
             </div>
             <div class="score-subcell">
               <span>Nitrogen Use</span>
-              <strong>${escapeHtml(formatMetric(item.nitrogen_use_score))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.nitrogen_use_score))}</strong>
             </div>
             <div class="score-subcell">
               <span>Carbon Use</span>
-              <strong>${escapeHtml(formatMetric(item.carbon_use_score))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.carbon_use_score))}</strong>
             </div>
             <div class="score-subcell">
               <span>Land Use</span>
-              <strong>${escapeHtml(formatMetric(item.land_use_score))}</strong>
+              <strong>${escapeHtml(formatMetric(recipe.land_use_score))}</strong>
             </div>
           </div>
         </div>
       </div>
     </div>
     <div>
-      <p class="panel-kicker">Tagged recipes (${escapeHtml(String(taggedRecipeCount))})</p>
+      <p class="panel-kicker">Tagged Ingredients (${escapeHtml(String(taggedIngredientCount))})</p>
       <div class="detail-tags">
-        ${taggedRecipeCount
-          ? item.tagged_recipes.map((recipe) => `<span class="pill">${escapeHtml(recipe)}</span>`).join('')
-          : '<span class="detail-copy">No recipe tags yet.</span>'}
+        ${taggedIngredientCount
+          ? recipe.tagged_ingredients.map(renderIngredientScorePill).join('')
+          : '<span class="detail-copy">No tagged ingredients yet.</span>'}
       </div>
     </div>
   `;
@@ -253,7 +293,7 @@ function renderDetail() {
 
 elements.searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  await loadItems(elements.searchInput.value);
+  await loadRecipes(elements.searchInput.value);
   elements.catalogSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
@@ -285,7 +325,7 @@ window.addEventListener('resize', () => {
 
 async function bootstrap() {
   try {
-    await loadItems();
+    await loadRecipes();
   } catch (error) {
     elements.searchSummary.textContent = error.message;
   }

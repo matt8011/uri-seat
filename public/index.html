@@ -31,11 +31,11 @@
           <p class="eyebrow">Sustainable Eating Assessment Tool</p>
           <h1>How sustainable was your meal?</h1>
           <p class="hero-text">
-			Search by recipe or ingredients to see how sustainable the URI
-			Dining Hall food is.
+			Search URI Dining Hall recipes and explore the ingredient mix behind
+			each meal.
           </p>
           <form id="searchForm" class="searchbar">
-            <label class="sr-only" for="searchInput">Search food item or recipe tag</label>
+            <label class="sr-only" for="searchInput">Search recipe or ingredient</label>
             <input id="searchInput" name="q" type="search" placeholder="Search cheeseburger, salad, apple..." autocomplete="off">
             <button class="button button-primary" type="submit">Search</button>
           </form>
@@ -64,33 +64,33 @@
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Catalog</p>
-              <h2>Dining Hall Items</h2>
+              <h2>Dining Hall Recipes</h2>
             </div>
             <p class="panel-meta">Open to all visitors</p>
           </div>
           <div id="resultsGrid" class="results-grid"></div>
-          <p id="emptyState" class="empty-state hidden">No items matched that search.</p>
+          <p id="emptyState" class="empty-state hidden">No recipes matched that search.</p>
         </section>
 
         <aside id="detailPanel" class="panel detail-panel" aria-live="polite">
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Info</p>
-              <h2 id="detailTitle">Select an entry</h2>
+              <h2 id="detailTitle">Select a recipe</h2>
             </div>
-            <button id="detailClose" class="detail-close hidden" type="button" aria-label="Close item details">
+            <button id="detailClose" class="detail-close hidden" type="button" aria-label="Close recipe details">
               ×
             </button>
           </div>
           <div id="detailContent" class="detail-content">
-            <p>Choose a card to inspect the currently visible public metrics and recipe tags.</p>
+            <p>Choose a recipe card to inspect the currently visible public metrics and tagged ingredients.</p>
           </div>
         </aside>
       </section>
     </main>
   </div>
 
-  <button id="detailBackdrop" class="detail-backdrop hidden" type="button" aria-label="Close item details"></button>
+  <button id="detailBackdrop" class="detail-backdrop hidden" type="button" aria-label="Close recipe details"></button>
 
   <script type="module" src="/app.js"></script>
 </body>

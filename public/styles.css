@@ -349,9 +349,71 @@ input[readonly] {
   color: var(--primary);
 }
 
+.pill-muted {
+  background: rgba(36, 49, 39, 0.06);
+  color: var(--muted);
+}
+
 .score-chip {
   background: rgba(203, 124, 76, 0.14);
   color: #8a4e2a;
+}
+
+.ingredient-pill {
+  position: relative;
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.ingredient-pill:focus-visible {
+  outline: 2px solid rgba(36, 79, 56, 0.28);
+  outline-offset: 2px;
+}
+
+.ingredient-pill-score {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translate(-50%, 6px);
+  padding: 7px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--ingredient-score-border, rgba(36, 79, 56, 0.16));
+  background: linear-gradient(
+    135deg,
+    var(--ingredient-score-bg-start, rgba(36, 79, 56, 0.08)),
+    var(--ingredient-score-bg-end, rgba(36, 79, 56, 0.16))
+  );
+  color: var(--ingredient-score-text, #244f38);
+  box-shadow: 0 12px 32px rgba(32, 38, 32, 0.18);
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+  white-space: nowrap;
+}
+
+.ingredient-pill-score::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: calc(100% - 1px);
+  width: 10px;
+  height: 10px;
+  background: var(--ingredient-score-bg-end, rgba(36, 79, 56, 0.16));
+  border-right: 1px solid var(--ingredient-score-border, rgba(36, 79, 56, 0.16));
+  border-bottom: 1px solid var(--ingredient-score-border, rgba(36, 79, 56, 0.16));
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.ingredient-pill:hover .ingredient-pill-score,
+.ingredient-pill:focus .ingredient-pill-score,
+.ingredient-pill:focus-visible .ingredient-pill-score,
+.ingredient-pill:active .ingredient-pill-score {
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 .detail-content {

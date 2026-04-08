@@ -59,8 +59,21 @@ const RECIPE_COLUMNS = [
   'id',
   'name',
   'sustainability_index',
+  'tagged_ingredients',
   'created_at',
-  'updated_at'
+  'updated_at',
+  'protein',
+  'fiber',
+  'calcium',
+  'iron',
+  'saturated_fat',
+  'sodium',
+  'nutrition_composite_score',
+  'environmental_composite_score',
+  'water_use_score',
+  'nitrogen_use_score',
+  'carbon_use_score',
+  'land_use_score'
 ];
 const NUTRITION_NUMERIC_FIELDS = [
   ['protein', 'Protein'],
@@ -177,8 +190,21 @@ function createRecipesTableSql() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
       sustainability_index REAL,
+      tagged_ingredients TEXT,
       created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
+      updated_at TEXT NOT NULL,
+      protein REAL,
+      fiber REAL,
+      calcium REAL,
+      iron REAL,
+      saturated_fat REAL,
+      sodium REAL,
+      nutrition_composite_score REAL,
+      environmental_composite_score REAL,
+      water_use_score REAL,
+      nitrogen_use_score REAL,
+      carbon_use_score REAL,
+      land_use_score REAL
     );
 
     CREATE INDEX IF NOT EXISTS idx_recipes_name ON recipes(name);
@@ -261,6 +287,7 @@ async function initializeDatabase() {
   await ensureFoodEntriesSchema();
   await ensureRecipesSchema();
   await backfillCalculatedNutritionScores();
+  await repopulateRecipes();
 }
 
 function parseJsonBody(req) {
@@ -457,9 +484,31 @@ function valueOrZero(value) {
   return value === null || value === undefined ? 0 : Number(value);
 }
 
+function isFiniteNumber(value) {
+  return value !== null && value !== undefined && Number.isFinite(Number(value));
+}
+
 function roundMetric(value, precision = 4) {
   const factor = 10 ** precision;
   return Math.round(value * factor) / factor;
+}
+
+function averageMetric(values) {
+  const numbers = values.filter(isFiniteNumber).map(Number);
+  if (numbers.length === 0) {
+    return null;
+  }
+
+  return roundMetric(numbers.reduce((sum, value) => sum + value, 0) / numbers.length);
+}
+
+function sumMetric(values) {
+  const numbers = values.filter(isFiniteNumber).map(Number);
+  if (numbers.length === 0) {
+    return null;
+  }
+
+  return roundMetric(numbers.reduce((sum, value) => sum + value, 0));
 }
 
 function calculateNutrientRichFoodIndex(item) {
@@ -738,8 +787,26 @@ function deserializeRecipeRow(row) {
     name: row.name,
     sustainability_index:
       row.sustainability_index === null ? null : Number(row.sustainability_index),
+    tagged_ingredients: row.tagged_ingredients ? JSON.parse(row.tagged_ingredients) : [],
     created_at: row.created_at,
-    updated_at: row.updated_at
+    updated_at: row.updated_at,
+    protein: row.protein === null ? null : Number(row.protein),
+    fiber: row.fiber === null ? null : Number(row.fiber),
+    calcium: row.calcium === null ? null : Number(row.calcium),
+    iron: row.iron === null ? null : Number(row.iron),
+    saturated_fat: row.saturated_fat === null ? null : Number(row.saturated_fat),
+    sodium: row.sodium === null ? null : Number(row.sodium),
+    nutrition_composite_score:
+      row.nutrition_composite_score === null ? null : Number(row.nutrition_composite_score),
+    environmental_composite_score:
+      row.environmental_composite_score === null
+        ? null
+        : Number(row.environmental_composite_score),
+    water_use_score: row.water_use_score === null ? null : Number(row.water_use_score),
+    nitrogen_use_score:
+      row.nitrogen_use_score === null ? null : Number(row.nitrogen_use_score),
+    carbon_use_score: row.carbon_use_score === null ? null : Number(row.carbon_use_score),
+    land_use_score: row.land_use_score === null ? null : Number(row.land_use_score)
   };
 }
 
@@ -935,12 +1002,24 @@ async function getItemById(id) {
   return deserializeRow(row);
 }
 
-async function queryRecipes() {
-  const rows = await allSql(`
-    SELECT *
-    FROM recipes
-    ORDER BY name COLLATE NOCASE ASC, id ASC;
-  `);
+async function queryRecipes(search = '') {
+  const trimmed = search.trim().toLowerCase();
+  const like = `%${trimmed}%`;
+  const sql = trimmed
+    ? `
+        SELECT *
+        FROM recipes
+        WHERE lower(name) LIKE ${sqlValue(like)}
+           OR lower(tagged_ingredients) LIKE ${sqlValue(like)}
+        ORDER BY name COLLATE NOCASE ASC, id ASC;
+      `
+    : `
+        SELECT *
+        FROM recipes
+        ORDER BY name COLLATE NOCASE ASC, id ASC;
+      `;
+
+  const rows = await allSql(sql);
   return rows.map(deserializeRecipeRow);
 }
 
@@ -960,33 +1039,61 @@ function buildRecipeRows(items, timestamp) {
       if (!groupedRecipes.has(normalizedKey)) {
         groupedRecipes.set(normalizedKey, {
           name: recipeName,
-          sustainabilityValues: []
+          ingredients: []
         });
       }
 
       const recipe = groupedRecipes.get(normalizedKey);
-      if (
-        item.sustainability_index !== null &&
-        item.sustainability_index !== undefined &&
-        Number.isFinite(Number(item.sustainability_index))
-      ) {
-        recipe.sustainabilityValues.push(Number(item.sustainability_index));
-      }
+      recipe.ingredients.push(item);
     }
   }
 
   return Array.from(groupedRecipes.values())
-    .map((recipe) => ({
-      name: recipe.name,
-      sustainability_index: recipe.sustainabilityValues.length
-        ? roundMetric(
-            recipe.sustainabilityValues.reduce((sum, value) => sum + value, 0) /
-              recipe.sustainabilityValues.length
-          )
-        : null,
-      created_at: timestamp,
-      updated_at: timestamp
-    }))
+    .map((recipe) => {
+      const taggedIngredients = recipe.ingredients.map((ingredient) => ({
+        name: ingredient.name,
+        sustainability_index: ingredient.sustainability_index
+      }));
+      const nutritionCompositeScore = averageMetric(
+        recipe.ingredients.map((ingredient) => ingredient.nutrition_composite_score)
+      );
+      const environmentalCompositeScore = averageMetric(
+        recipe.ingredients.map((ingredient) => ingredient.environmental_composite_score)
+      );
+
+      return {
+        name: recipe.name,
+        sustainability_index: calculateSustainabilityIndex(
+          nutritionCompositeScore,
+          environmentalCompositeScore
+        ),
+        tagged_ingredients: taggedIngredients,
+        created_at: timestamp,
+        updated_at: timestamp,
+        protein: sumMetric(recipe.ingredients.map((ingredient) => ingredient.protein)),
+        fiber: sumMetric(recipe.ingredients.map((ingredient) => ingredient.fiber)),
+        calcium: sumMetric(recipe.ingredients.map((ingredient) => ingredient.calcium)),
+        iron: sumMetric(recipe.ingredients.map((ingredient) => ingredient.iron)),
+        saturated_fat: sumMetric(
+          recipe.ingredients.map((ingredient) => ingredient.saturated_fat)
+        ),
+        sodium: sumMetric(recipe.ingredients.map((ingredient) => ingredient.sodium)),
+        nutrition_composite_score: nutritionCompositeScore,
+        environmental_composite_score: environmentalCompositeScore,
+        water_use_score: averageMetric(
+          recipe.ingredients.map((ingredient) => ingredient.water_use_score)
+        ),
+        nitrogen_use_score: averageMetric(
+          recipe.ingredients.map((ingredient) => ingredient.nitrogen_use_score)
+        ),
+        carbon_use_score: averageMetric(
+          recipe.ingredients.map((ingredient) => ingredient.carbon_use_score)
+        ),
+        land_use_score: averageMetric(
+          recipe.ingredients.map((ingredient) => ingredient.land_use_score)
+        )
+      };
+    })
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
 }
 
@@ -995,13 +1102,39 @@ function recipeInsertSql(recipe) {
     INSERT INTO recipes (
       name,
       sustainability_index,
+      tagged_ingredients,
       created_at,
-      updated_at
+      updated_at,
+      protein,
+      fiber,
+      calcium,
+      iron,
+      saturated_fat,
+      sodium,
+      nutrition_composite_score,
+      environmental_composite_score,
+      water_use_score,
+      nitrogen_use_score,
+      carbon_use_score,
+      land_use_score
     ) VALUES (
       ${sqlValue(recipe.name)},
       ${sqlValue(recipe.sustainability_index)},
+      ${sqlValue(JSON.stringify(recipe.tagged_ingredients))},
       ${sqlValue(recipe.created_at)},
-      ${sqlValue(recipe.updated_at)}
+      ${sqlValue(recipe.updated_at)},
+      ${sqlValue(recipe.protein)},
+      ${sqlValue(recipe.fiber)},
+      ${sqlValue(recipe.calcium)},
+      ${sqlValue(recipe.iron)},
+      ${sqlValue(recipe.saturated_fat)},
+      ${sqlValue(recipe.sodium)},
+      ${sqlValue(recipe.nutrition_composite_score)},
+      ${sqlValue(recipe.environmental_composite_score)},
+      ${sqlValue(recipe.water_use_score)},
+      ${sqlValue(recipe.nitrogen_use_score)},
+      ${sqlValue(recipe.carbon_use_score)},
+      ${sqlValue(recipe.land_use_score)}
     );
   `;
 }
@@ -1403,6 +1536,7 @@ async function handleCsvImport(req, res) {
     sql += items.map((item) => foodInsertSql(item, now)).join('\n');
 
     await runSql(sql);
+    await repopulateRecipes();
 
     return sendJson(res, 200, {
       imported: items.length,
@@ -1466,6 +1600,14 @@ async function handleApi(req, res, pathname, searchParams) {
 
   if (pathname === '/api/items/import' && method === 'POST') {
     return handleCsvImport(req, res);
+  }
+
+  if (pathname === '/api/public-recipes' && method === 'GET') {
+    const search = searchParams.get('q') || '';
+    return sendJson(res, 200, {
+      recipes: await queryRecipes(search),
+      query: search
+    });
   }
 
   if (pathname === '/api/items' && method === 'GET') {
@@ -1545,6 +1687,7 @@ async function handleApi(req, res, pathname, searchParams) {
       const item = validated.value;
       const now = new Date().toISOString();
       await runSql(foodInsertSql(item, now));
+      await repopulateRecipes();
 
       const inserted = await getSql('SELECT * FROM food_entries ORDER BY id DESC LIMIT 1;');
       return sendJson(res, 201, deserializeRow(inserted));
@@ -1577,6 +1720,7 @@ async function handleApi(req, res, pathname, searchParams) {
       }
 
       await runSql(foodUpdateSql(id, validated.value, new Date().toISOString()));
+      await repopulateRecipes();
       return sendJson(res, 200, await getItemById(id));
     } catch (error) {
       console.error(error);
@@ -1599,6 +1743,7 @@ async function handleApi(req, res, pathname, searchParams) {
     }
 
     await runSql(`DELETE FROM food_entries WHERE id = ${sqlValue(id)};`);
+    await repopulateRecipes();
     return sendJson(res, 200, { success: true });
   }
 
