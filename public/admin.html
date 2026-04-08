@@ -48,7 +48,7 @@
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Manage</p>
-              <h2>Add food entry</h2>
+              <h2>Add ingredient entry</h2>
             </div>
             <p class="panel-meta">General, nutrition, and environmental details</p>
           </div>
@@ -172,11 +172,46 @@
           </p>
         </section>
 
+        <section class="panel import-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Recipes</p>
+              <h2>Repopulate Recipes</h2>
+            </div>
+            <p id="recipeTableSummary" class="panel-meta">Loading recipes...</p>
+          </div>
+          <div class="import-controls">
+            <button id="repopulateRecipesButton" class="button button-secondary" type="button">Repopulate Recipes</button>
+          </div>
+          <div id="recipeMessage" class="admin-message"></div>
+          <p class="hint-copy">
+            Rebuilds the recipe table from the current ingredient entries by averaging the sustainability
+            indexes of all ingredients tagged with each recipe.
+          </p>
+        </section>
+
+        <section class="panel import-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Danger Zone</p>
+              <h2>Clear Database</h2>
+            </div>
+            <p class="panel-meta">Deletes ingredients and recipes</p>
+          </div>
+          <div class="import-controls">
+            <button id="clearDatabaseButton" class="button button-danger" type="button">Clear Database</button>
+          </div>
+          <div id="clearDatabaseMessage" class="admin-message"></div>
+          <p class="hint-copy">
+            This removes all ingredient entries and all generated recipes from the local database.
+          </p>
+        </section>
+
         <section class="panel admin-panel">
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Database</p>
-              <h2>Current entries</h2>
+              <h2>Current ingredients</h2>
             </div>
             <p id="adminTableSummary" class="panel-meta">Loading entries...</p>
           </div>
@@ -192,6 +227,28 @@
                 </tr>
               </thead>
               <tbody id="adminTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel admin-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Recipes</p>
+              <h2>Current recipes</h2>
+            </div>
+            <p class="panel-meta">Generated from ingredient tags</p>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Recipe</th>
+                  <th>Sustainability Index</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody id="recipeTableBody"></tbody>
             </table>
           </div>
         </section>

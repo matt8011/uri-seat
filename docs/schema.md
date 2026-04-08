@@ -2,9 +2,10 @@
 
 ## Overview
 
-The application uses a SQLite database with three main tables:
+The application uses a SQLite database with four main tables:
 
 - `food_entries`: food item records shown on the public site and managed in the admin UI
+- `recipes`: derived recipe records rebuilt from ingredient `tagged_recipes`
 - `users`: Google-authenticated users known to the system
 - `sessions`: signed login sessions tied to users
 
@@ -53,6 +54,34 @@ Primary application data lives in `food_entries`.
 ### Important Implementation Detail
 
 `tagged_recipes` is stored in SQLite as `TEXT`, but the application treats it as a JSON array. In API responses it is parsed into a normal JavaScript array.
+
+## Table: `recipes`
+
+Stores recipe-level records generated from the ingredient catalog.
+
+### Columns
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` | Primary key, autoincrement |
+| `name` | `TEXT` | Recipe name, unique |
+| `sustainability_index` | `REAL` | Average of ingredient `sustainability_index` values for all ingredients tagged with this recipe |
+| `created_at` | `TEXT` | ISO timestamp for the latest rebuild that created the row |
+| `updated_at` | `TEXT` | ISO timestamp for the latest rebuild |
+
+### Indexes
+
+- `idx_recipes_name` on `name`
+
+### Important Implementation Detail
+
+The `recipes` table is derived data. The admin-only "Repopulate Recipes" action clears the table and rebuilds it from all `food_entries` by:
+
+- reading each ingredient's `tagged_recipes`
+- grouping recipe tags case-insensitively
+- averaging the ingredient `sustainability_index` values for each grouped recipe
+
+The first-seen spelling of a recipe tag is preserved as the stored display name.
 
 ## Table: `users`
 
@@ -114,6 +143,8 @@ Several columns in `food_entries` are not freeform data-entry fields. They are c
 
 The frontend may preview these values live, but the backend is the source of truth.
 
+The `recipes.sustainability_index` column is also server-derived and only changes when the recipe table is rebuilt.
+
 ## Environmental Scoring Notes
 
 The environmental raw inputs are stored directly:
@@ -147,5 +178,6 @@ These are not currently stored as database columns.
 
 - `food_entries.name` is the main human-readable identifier used across the UI.
 - Search is currently centered on `name` and `tagged_recipes`.
+- Recipe rows are not hand-entered; they are regenerated from ingredient tags in the admin panel.
 - If you ever need to migrate the schema, do it carefully: the app does not yet have a dedicated migrations system.
 - Timestamps are stored as text in ISO-like UTC strings, which keeps them easy to serialize and display.

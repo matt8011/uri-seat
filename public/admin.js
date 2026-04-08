@@ -7,6 +7,7 @@ import {
   calculateSustainabilityIndex,
   escapeHtml,
   formatDateTime,
+  formatMetric,
   getSustainabilityPalette,
   parseRecipes
 } from '/shared.js';
@@ -70,6 +71,7 @@ const state = {
   config: null,
   session: null,
   items: [],
+  recipes: [],
   authReady: false
 };
 
@@ -89,7 +91,13 @@ const elements = {
   csvFile: document.getElementById('csvFile'),
   replaceExisting: document.getElementById('replaceExisting'),
   importButton: document.getElementById('importButton'),
-  importMessage: document.getElementById('importMessage')
+  importMessage: document.getElementById('importMessage'),
+  repopulateRecipesButton: document.getElementById('repopulateRecipesButton'),
+  recipeMessage: document.getElementById('recipeMessage'),
+  recipeTableBody: document.getElementById('recipeTableBody'),
+  recipeTableSummary: document.getElementById('recipeTableSummary'),
+  clearDatabaseButton: document.getElementById('clearDatabaseButton'),
+  clearDatabaseMessage: document.getElementById('clearDatabaseMessage')
 };
 
 function getNumberValue(id) {
@@ -124,6 +132,16 @@ function setImportMessage(message, isError = false) {
   elements.importMessage.style.color = isError ? '#a93d30' : '';
 }
 
+function setRecipeMessage(message, isError = false) {
+  elements.recipeMessage.textContent = message;
+  elements.recipeMessage.style.color = isError ? '#a93d30' : '';
+}
+
+function setClearDatabaseMessage(message, isError = false) {
+  elements.clearDatabaseMessage.textContent = message;
+  elements.clearDatabaseMessage.style.color = isError ? '#a93d30' : '';
+}
+
 async function loadConfig() {
   state.config = await api('/api/config');
 }
@@ -138,6 +156,12 @@ async function loadItems() {
   const payload = await api('/api/items');
   state.items = payload.items;
   renderAdminTable();
+}
+
+async function loadRecipes() {
+  const payload = await api('/api/recipes');
+  state.recipes = payload.recipes;
+  renderRecipeTable();
 }
 
 function renderAuth() {
@@ -202,6 +226,38 @@ function renderAdminTable() {
       </td>
     `;
     elements.adminTableBody.appendChild(row);
+  }
+}
+
+function renderRecipeTable() {
+  elements.recipeTableBody.innerHTML = '';
+
+  if (!state.session?.isAdmin) {
+    elements.recipeTableSummary.textContent = 'Sign in as an admin to view recipes.';
+    return;
+  }
+
+  elements.recipeTableSummary.textContent = `Showing ${state.recipes.length} recipe${state.recipes.length === 1 ? '' : 's'}`;
+
+  if (state.recipes.length === 0) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td data-label="Recipe">No recipes generated yet.</td>
+      <td data-label="Sustainability Index">Pending</td>
+      <td data-label="Updated">N/A</td>
+    `;
+    elements.recipeTableBody.appendChild(row);
+    return;
+  }
+
+  for (const recipe of state.recipes) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td data-label="Recipe">${escapeHtml(recipe.name)}</td>
+      <td data-label="Sustainability Index">${escapeHtml(formatMetric(recipe.sustainability_index))}</td>
+      <td data-label="Updated">${escapeHtml(formatDateTime(recipe.updated_at))}</td>
+    `;
+    elements.recipeTableBody.appendChild(row);
   }
 }
 
@@ -307,6 +363,7 @@ async function handleCredentialResponse(response) {
     });
     await loadSession();
     await loadItems();
+    await loadRecipes();
   } catch (error) {
     elements.authStatus.textContent = error.message;
     elements.authHint.textContent = 'Sign-in failed. Confirm GOOGLE_CLIENT_ID matches the client used in Google Cloud.';
@@ -359,6 +416,7 @@ elements.signOutButton.addEventListener('click', async () => {
   clearForm();
   renderAuth();
   renderAdminTable();
+  renderRecipeTable();
 });
 
 for (const field of editableNumberFields) {
@@ -456,12 +514,69 @@ elements.importButton.addEventListener('click', async () => {
   }
 });
 
+elements.repopulateRecipesButton.addEventListener('click', async () => {
+  try {
+    setRecipeMessage('Rebuilding recipes from ingredient tags...');
+    elements.repopulateRecipesButton.disabled = true;
+    const result = await api('/api/recipes/repopulate', {
+      method: 'POST'
+    });
+
+    state.recipes = result.recipes;
+    renderRecipeTable();
+    setRecipeMessage(
+      `Built ${result.recipeCount} recipe${result.recipeCount === 1 ? '' : 's'} from ${result.ingredientCount} ingredient entr${result.ingredientCount === 1 ? 'y' : 'ies'}.`
+    );
+  } catch (error) {
+    setRecipeMessage(error.message, true);
+  } finally {
+    elements.repopulateRecipesButton.disabled = false;
+  }
+});
+
+elements.clearDatabaseButton.addEventListener('click', async () => {
+  const firstConfirmation = window.confirm(
+    'Are you really sure you want to clear all ingredient and recipe data?'
+  );
+  if (!firstConfirmation) {
+    return;
+  }
+
+  const secondConfirmation = window.confirm(
+    'Are you really, really sure? This will delete all ingredient and recipe entries.'
+  );
+  if (!secondConfirmation) {
+    return;
+  }
+
+  try {
+    setClearDatabaseMessage('Clearing ingredient and recipe tables...');
+    elements.clearDatabaseButton.disabled = true;
+    await api('/api/admin/clear-database', {
+      method: 'POST'
+    });
+    state.items = [];
+    state.recipes = [];
+    clearForm();
+    renderAdminTable();
+    renderRecipeTable();
+    setAdminMessage('Database cleared.');
+    setRecipeMessage('');
+    setClearDatabaseMessage('Database cleared.');
+  } catch (error) {
+    setClearDatabaseMessage(error.message, true);
+  } finally {
+    elements.clearDatabaseButton.disabled = false;
+  }
+});
+
 async function bootstrap() {
   try {
     await loadConfig();
     await loadSession();
     if (state.session?.isAdmin) {
       await loadItems();
+      await loadRecipes();
     }
 
     const poll = window.setInterval(() => {

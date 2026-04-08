@@ -1,0 +1,14 @@
+name,tagged_recipes,protein,fiber,vitamin_a,vitamin_c,vitamin_e,calcium,iron,magnesium,potassium,saturated_fat,added_sugar,sodium,freshwater_withdrawals,stress_weighted_water_use,acidifying_emissions,eutrophying_emissions,ghg_emissions,land_use
+Hamburger bun,"Hamburger, Cheeseburger",8,2,0,0,0.4,120,3.1,28,95,0.6,4,230,140,4200,7.8,5.9,1.2,1.8
+Beef patty,"Hamburger, Cheeseburger",26,0,0,0,0.2,18,2.7,22,310,6.9,0,410,680,18400,32.5,26.8,6.1,14.5
+American cheese,Cheeseburger,5,0,210,0,0.3,160,0.1,6,28,4.5,0,290,210,5100,11.4,7.2,2.4,3.2
+Turkey breast slices,Turkey club sandwich,18,0,12,0,0.1,10,0.9,18,210,0.8,0,540,290,7600,13.2,8.9,2.1,3.8
+Sandwich bread,Turkey club sandwich,6,2,0,0,0.3,90,2.4,22,88,0.5,3,210,150,3900,7.1,5.4,1.0,1.4
+Bacon strips,Turkey club sandwich,12,0,0,0,0.2,8,0.5,12,190,3.8,0,620,430,10900,18.7,12.1,3.3,5.7
+Lettuce shredded,"Turkey club sandwich, Chicken taco",1,1,2800,4.5,0.2,18,0.5,8,110,0,0,12,40,900,1.9,1.1,0.3,0.4
+Tomato slices,Turkey club sandwich,1,1,510,8.7,0.5,10,0.3,9,170,0,0,8,55,1100,2.1,1.4,0.4,0.5
+Mayonnaise,Turkey club sandwich,0,0,0,0,0.1,2,0,1,3,1.7,0,85,95,2600,4.2,3.0,0.8,1.1
+Taco shell,Chicken taco,3,2,0,0,0.2,40,0.8,14,70,1.1,0,160,130,3400,6.3,4.5,0.9,1.2
+Chicken breast strips,Chicken taco,22,0,20,0,0.2,12,0.7,24,260,0.9,0,360,250,6400,10.8,7.1,1.8,2.9
+Cheddar cheese shredded,Chicken taco,7,0,260,0,0.2,190,0.2,8,24,4.6,0,180,225,5300,10.6,7.0,2.2,3.0
+Salsa,Chicken taco,1,1,620,6.1,0.3,16,0.4,10,180,0,2,120,60,1500,2.8,1.9,0.5,0.6
