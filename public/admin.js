@@ -12,6 +12,44 @@ import {
   parseRecipes
 } from '/shared.js';
 
+const DB_IMPORT_COLUMNS = [
+  'name', 'tagged_recipes', 'protein', 'fiber', 'vitamin_a', 'vitamin_c',
+  'vitamin_e', 'calcium', 'iron', 'magnesium', 'potassium', 'saturated_fat',
+  'added_sugar', 'sodium', 'freshwater_withdrawals', 'stress_weighted_water_use',
+  'acidifying_emissions', 'eutrophying_emissions', 'ghg_emissions', 'land_use'
+];
+
+function normalizeHeader(header) {
+  return String(header || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/, '');
+}
+
+function autoMatchHeader(csvHeader) {
+  const normalized = normalizeHeader(csvHeader);
+  return DB_IMPORT_COLUMNS.find((col) => col === normalized) ?? null;
+}
+
+function parseCsvFirstRow(csvText) {
+  const bom = csvText.charCodeAt(0) === 0xFEFF ? csvText.slice(1) : csvText;
+  const firstLine = bom.split(/\r?\n/)[0];
+  const headers = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < firstLine.length; i++) {
+    const ch = firstLine[i];
+    if (inQuotes) {
+      if (ch === '"' && firstLine[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { headers.push(field.trim()); field = ''; }
+      else { field += ch; }
+    }
+  }
+  headers.push(field.trim());
+  return headers;
+}
+
 const editableNumberFields = [
   'protein',
   'fiber',
@@ -97,8 +135,59 @@ const elements = {
   recipeTableBody: document.getElementById('recipeTableBody'),
   recipeTableSummary: document.getElementById('recipeTableSummary'),
   clearDatabaseButton: document.getElementById('clearDatabaseButton'),
-  clearDatabaseMessage: document.getElementById('clearDatabaseMessage')
+  clearDatabaseMessage: document.getElementById('clearDatabaseMessage'),
+  columnMappingDialog: document.getElementById('columnMappingDialog'),
+  columnMappingList: document.getElementById('columnMappingList'),
+  columnMappingConfirm: document.getElementById('columnMappingConfirm'),
+  columnMappingCancel: document.getElementById('columnMappingCancel')
 };
+
+function resolveColumnMapping(unmatchedHeaders) {
+  return new Promise((resolve) => {
+    elements.columnMappingList.innerHTML = '';
+
+    for (const header of unmatchedHeaders) {
+      const row = document.createElement('div');
+      row.className = 'mapping-row';
+      const options = DB_IMPORT_COLUMNS.map(
+        (col) => `<option value="${escapeHtml(col)}">${escapeHtml(col)}</option>`
+      ).join('');
+      row.innerHTML = `
+        <p class="mapping-row-label">Column <strong>"${escapeHtml(header)}"</strong> could not be matched.</p>
+        <select class="mapping-select" data-csv-header="${escapeHtml(header)}">
+          <option value="">— Ignore this column</option>
+          ${options}
+        </select>
+      `;
+      elements.columnMappingList.appendChild(row);
+    }
+
+    elements.columnMappingDialog.showModal();
+
+    const onConfirm = () => {
+      const mapping = {};
+      elements.columnMappingList.querySelectorAll('select[data-csv-header]').forEach((select) => {
+        mapping[select.dataset.csvHeader] = select.value || null;
+      });
+      cleanup();
+      resolve(mapping);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    function cleanup() {
+      elements.columnMappingDialog.close();
+      elements.columnMappingConfirm.removeEventListener('click', onConfirm);
+      elements.columnMappingCancel.removeEventListener('click', onCancel);
+    }
+
+    elements.columnMappingConfirm.addEventListener('click', onConfirm);
+    elements.columnMappingCancel.addEventListener('click', onCancel);
+  });
+}
 
 function getNumberValue(id) {
   const raw = document.getElementById(id).value.trim();
@@ -496,18 +585,51 @@ elements.importButton.addEventListener('click', async () => {
   try {
     setImportMessage('Reading CSV...');
     const csvText = await file.text();
-    const payload = {
-      csvText,
-      replaceExisting: elements.replaceExisting.checked
-    };
 
+    const csvHeaders = parseCsvFirstRow(csvText);
+    if (!csvHeaders.length || csvHeaders.every((h) => !h)) {
+      setImportMessage('CSV file appears to be empty or has no headers.', true);
+      return;
+    }
+
+    const columnMapping = {};
+    const unmatchedHeaders = [];
+
+    for (const header of csvHeaders) {
+      if (!header) continue;
+      const match = autoMatchHeader(header);
+      if (match) {
+        columnMapping[header] = match;
+      } else {
+        unmatchedHeaders.push(header);
+      }
+    }
+
+    if (unmatchedHeaders.length > 0) {
+      const resolved = await resolveColumnMapping(unmatchedHeaders);
+      if (resolved === null) {
+        setImportMessage('Import cancelled.');
+        return;
+      }
+      Object.assign(columnMapping, resolved);
+    }
+
+    setImportMessage('Importing...');
     const result = await api('/api/items/import', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        csvText,
+        columnMapping,
+        replaceExisting: elements.replaceExisting.checked
+      })
     });
 
     await loadItems();
-    setImportMessage(`Imported ${result.imported} entr${result.imported === 1 ? 'y' : 'ies'}.`);
+    const parts = [];
+    if (result.inserted > 0) parts.push(`${result.inserted} inserted`);
+    if (result.updated > 0) parts.push(`${result.updated} updated`);
+    if (result.skipped > 0) parts.push(`${result.skipped} skipped (no name)`);
+    setImportMessage(parts.length ? parts.join(', ') + '.' : 'Nothing to import.');
     elements.csvFile.value = '';
   } catch (error) {
     setImportMessage(error.message, true);

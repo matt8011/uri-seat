@@ -1,19 +1,28 @@
 :root {
-  --bg: #f4efe5;
+  --bg: #edf3f8;
   --page-bg:
-    radial-gradient(circle at top left, rgba(203, 124, 76, 0.18), transparent 34%),
-    radial-gradient(circle at top right, rgba(36, 79, 56, 0.18), transparent 30%),
-    linear-gradient(180deg, #f7f1e7 0%, #f1eadb 100%);
-  --surface: rgba(255, 251, 244, 0.86);
-  --surface-strong: #fffdf8;
-  --text: #243127;
-  --muted: #647063;
-  --line: rgba(36, 49, 39, 0.1);
-  --primary: #244f38;
-  --primary-strong: #173926;
-  --accent: #cb7c4c;
+    radial-gradient(circle at top left, rgba(192, 221, 242, 0.55), transparent 34%),
+    radial-gradient(circle at top right, rgba(181, 152, 90, 0.2), transparent 32%),
+    linear-gradient(180deg, #f8fbfe 0%, #edf3f8 52%, #e5edf5 100%);
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-strong: #ffffff;
+  --text: #002147;
+  --muted: #4b5d74;
+  --line: rgba(0, 33, 71, 0.12);
+  --line-strong: rgba(0, 33, 71, 0.18);
+  --primary: #002147;
+  --primary-strong: #001228;
+  --primary-mid: #30557e;
+  --primary-bright: #2277b3;
+  --primary-tint: rgba(192, 221, 242, 0.3);
+  --primary-tint-strong: rgba(34, 119, 179, 0.14);
+  --accent: #b5985a;
+  --accent-strong: #7d6538;
+  --accent-bright: #ffd453;
+  --accent-tint: rgba(181, 152, 90, 0.16);
+  --accent-tint-strong: rgba(255, 212, 83, 0.26);
   --danger: #a93d30;
-  --shadow: 0 24px 60px rgba(32, 38, 32, 0.12);
+  --shadow: 0 24px 60px rgba(0, 18, 40, 0.12);
   --radius-lg: 28px;
   --radius-md: 18px;
   --radius-sm: 12px;
@@ -45,8 +54,8 @@ body::before {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+    linear-gradient(rgba(0, 33, 71, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 33, 71, 0.05) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 92%);
 }
@@ -645,6 +654,7 @@ input[readonly] {
   height: 18px;
 }
 
+
 .admin-message {
   min-height: 24px;
   font-weight: 600;
@@ -1121,4 +1131,89 @@ input[readonly] {
   .detail-tags .recipe-pill[data-open='true'] .recipe-pill-tooltip {
     transform: translate(-50%, 0) scale(1);
   }
+}
+
+/* ── Column mapping dialog ───────────────────────────── */
+
+.mapping-dialog {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0;
+  max-width: 540px;
+  width: calc(100vw - 32px);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+  color: var(--text);
+}
+
+.mapping-dialog::backdrop {
+  background: rgba(24, 36, 26, 0.48);
+  backdrop-filter: blur(4px);
+}
+
+.mapping-dialog-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 28px;
+}
+
+.mapping-dialog h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 1.3rem;
+  margin: 0 0 4px;
+}
+
+.mapping-dialog-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.mapping-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.mapping-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mapping-row-label {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.mapping-row-label strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.mapping-select {
+  appearance: none;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--line);
+  background: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.mapping-select:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.mapping-dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }

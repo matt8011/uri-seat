@@ -165,10 +165,9 @@
           </div>
           <div id="importMessage" class="admin-message"></div>
           <p class="hint-copy">
-            Expected headers: `name`, `tagged_recipes`, `protein`, `fiber`, `vitamin_a`, `vitamin_c`,
-            `vitamin_e`, `calcium`, `iron`, `magnesium`, `potassium`, `saturated_fat`, `added_sugar`,
-            `sodium`, `freshwater_withdrawals`, `stress_weighted_water_use`, `acidifying_emissions`,
-            `eutrophying_emissions`, `ghg_emissions`, and `land_use`.
+            Column headers are matched automatically. Any unrecognized headers will prompt you to
+            map or ignore them. Missing columns are stored as null. Empty cells are treated as null.
+            Rows whose name matches an existing entry will update only the provided fields.
           </p>
         </section>
 
@@ -255,6 +254,20 @@
       </section>
     </main>
   </div>
+
+  <dialog id="columnMappingDialog" class="mapping-dialog">
+    <div class="mapping-dialog-inner">
+      <div class="mapping-dialog-header">
+        <h3>Unmatched Columns</h3>
+        <p>The following CSV columns couldn't be automatically matched. Map each one to a database column or ignore it.</p>
+      </div>
+      <div id="columnMappingList" class="mapping-list"></div>
+      <div class="mapping-dialog-actions">
+        <button id="columnMappingCancel" class="button button-ghost" type="button">Cancel</button>
+        <button id="columnMappingConfirm" class="button button-primary" type="button">Continue Import</button>
+      </div>
+    </div>
+  </dialog>
 
   <script type="module" src="/admin.js"></script>
 </body>
