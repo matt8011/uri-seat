@@ -21,6 +21,7 @@ const touchRecipePillMedia = window.matchMedia('(hover: none), (pointer: coarse)
 let lockedScrollY = 0;
 let isDocumentScrollLocked = false;
 let wasOverlayVisible = false;
+let lockedScrollbarCompensation = 0;
 
 const elements = {
   searchForm: document.getElementById('searchForm'),
@@ -47,12 +48,16 @@ function setDocumentScrollLock(locked) {
 
   if (locked) {
     lockedScrollY = window.scrollY;
+    lockedScrollbarCompensation = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
     document.documentElement.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.top = `-${lockedScrollY}px`;
     document.body.style.left = '0';
     document.body.style.right = '0';
     document.body.style.width = '100%';
+    document.body.style.paddingRight = lockedScrollbarCompensation
+      ? `${lockedScrollbarCompensation}px`
+      : '';
     document.body.style.overflow = 'hidden';
   } else {
     const previousScrollBehavior = document.documentElement.style.scrollBehavior;
@@ -63,7 +68,9 @@ function setDocumentScrollLock(locked) {
     document.body.style.left = '';
     document.body.style.right = '';
     document.body.style.width = '';
+    document.body.style.paddingRight = '';
     document.body.style.overflow = '';
+    lockedScrollbarCompensation = 0;
     window.scrollTo(0, lockedScrollY);
     requestAnimationFrame(() => {
       document.documentElement.style.scrollBehavior = previousScrollBehavior;
@@ -100,6 +107,26 @@ function closeDetailPanel() {
   syncDetailPanelVisibility();
 }
 
+function setRecipePillOpen(pill, open) {
+  if (!pill) {
+    return;
+  }
+
+  pill.dataset.open = open ? 'true' : 'false';
+  pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function closeRecipePills(root = document, exception = null) {
+  const pills = root.querySelectorAll('[data-recipe-pill][data-open="true"]');
+  for (const pill of pills) {
+    if (pill === exception) {
+      continue;
+    }
+
+    setRecipePillOpen(pill, false);
+  }
+}
+
 function renderIngredientPreview(ingredients) {
   const visibleIngredients = ingredients.slice(0, PREVIEW_INGREDIENT_LIMIT);
   const overflowCount = Math.max(ingredients.length - visibleIngredients.length, 0);
@@ -121,8 +148,11 @@ function renderIngredientScorePill(ingredient) {
     <button
       class="pill ingredient-pill"
       type="button"
+      data-recipe-pill
+      data-open="false"
       title="SI ${sustainabilityLabel}"
       aria-label="${ingredientName} sustainability index ${sustainabilityLabel}"
+      aria-expanded="false"
     >
       <span>${ingredientName}</span>
       <span
@@ -190,6 +220,7 @@ function renderResults() {
     `;
 
     card.addEventListener('click', () => {
+      closeRecipePills();
       state.selectedRecipeId = recipe.id;
       state.detailPanelOpen = isCompactDetailMode();
       renderResults();
