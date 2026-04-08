@@ -55,6 +55,13 @@ const FOOD_COLUMNS = [
   'land_use',
   'environmental_composite_score'
 ];
+const RECIPE_COLUMNS = [
+  'id',
+  'name',
+  'sustainability_index',
+  'created_at',
+  'updated_at'
+];
 const NUTRITION_NUMERIC_FIELDS = [
   ['protein', 'Protein'],
   ['fiber', 'Fiber'],
@@ -164,6 +171,20 @@ function createFoodEntriesTableSql() {
   `;
 }
 
+function createRecipesTableSql() {
+  return `
+    CREATE TABLE IF NOT EXISTS recipes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      sustainability_index REAL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_recipes_name ON recipes(name);
+  `;
+}
+
 async function ensureFoodEntriesSchema() {
   const table = await getSql(`
     SELECT name
@@ -185,6 +206,29 @@ async function ensureFoodEntriesSchema() {
   }
 
   await runSql(createFoodEntriesTableSql());
+}
+
+async function ensureRecipesSchema() {
+  const table = await getSql(`
+    SELECT name
+    FROM sqlite_master
+    WHERE type = 'table' AND name = 'recipes'
+    LIMIT 1;
+  `);
+
+  if (table) {
+    const columns = await allSql('PRAGMA table_info(recipes);');
+    const actualColumns = columns.map((column) => String(column.name));
+    const hasExpectedColumns =
+      actualColumns.length === RECIPE_COLUMNS.length &&
+      RECIPE_COLUMNS.every((name, index) => actualColumns[index] === name);
+
+    if (!hasExpectedColumns) {
+      await runSql('DROP TABLE IF EXISTS recipes;');
+    }
+  }
+
+  await runSql(createRecipesTableSql());
 }
 
 async function initializeDatabase() {
@@ -215,6 +259,7 @@ async function initializeDatabase() {
   `);
 
   await ensureFoodEntriesSchema();
+  await ensureRecipesSchema();
   await backfillCalculatedNutritionScores();
 }
 
@@ -683,6 +728,21 @@ function deserializeRow(row) {
   };
 }
 
+function deserializeRecipeRow(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: Number(row.id),
+    name: row.name,
+    sustainability_index:
+      row.sustainability_index === null ? null : Number(row.sustainability_index),
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+}
+
 function validateFoodPayload(body) {
   const name = String(body.name || '').trim();
   const taggedRecipes = normalizeRecipes(body.tagged_recipes);
@@ -873,6 +933,111 @@ async function queryItems(search = '') {
 async function getItemById(id) {
   const row = await getSql(`SELECT * FROM food_entries WHERE id = ${sqlValue(id)} LIMIT 1;`);
   return deserializeRow(row);
+}
+
+async function queryRecipes() {
+  const rows = await allSql(`
+    SELECT *
+    FROM recipes
+    ORDER BY name COLLATE NOCASE ASC, id ASC;
+  `);
+  return rows.map(deserializeRecipeRow);
+}
+
+function buildRecipeRows(items, timestamp) {
+  const groupedRecipes = new Map();
+
+  for (const item of items) {
+    const uniqueTags = new Map();
+    for (const recipeName of normalizeRecipes(item.tagged_recipes)) {
+      const normalizedKey = recipeName.toLowerCase();
+      if (!uniqueTags.has(normalizedKey)) {
+        uniqueTags.set(normalizedKey, recipeName);
+      }
+    }
+
+    for (const [normalizedKey, recipeName] of uniqueTags.entries()) {
+      if (!groupedRecipes.has(normalizedKey)) {
+        groupedRecipes.set(normalizedKey, {
+          name: recipeName,
+          sustainabilityValues: []
+        });
+      }
+
+      const recipe = groupedRecipes.get(normalizedKey);
+      if (
+        item.sustainability_index !== null &&
+        item.sustainability_index !== undefined &&
+        Number.isFinite(Number(item.sustainability_index))
+      ) {
+        recipe.sustainabilityValues.push(Number(item.sustainability_index));
+      }
+    }
+  }
+
+  return Array.from(groupedRecipes.values())
+    .map((recipe) => ({
+      name: recipe.name,
+      sustainability_index: recipe.sustainabilityValues.length
+        ? roundMetric(
+            recipe.sustainabilityValues.reduce((sum, value) => sum + value, 0) /
+              recipe.sustainabilityValues.length
+          )
+        : null,
+      created_at: timestamp,
+      updated_at: timestamp
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+}
+
+function recipeInsertSql(recipe) {
+  return `
+    INSERT INTO recipes (
+      name,
+      sustainability_index,
+      created_at,
+      updated_at
+    ) VALUES (
+      ${sqlValue(recipe.name)},
+      ${sqlValue(recipe.sustainability_index)},
+      ${sqlValue(recipe.created_at)},
+      ${sqlValue(recipe.updated_at)}
+    );
+  `;
+}
+
+async function repopulateRecipes() {
+  const ingredients = (await allSql('SELECT * FROM food_entries ORDER BY id ASC;'))
+    .map(deserializeRow);
+  const now = new Date().toISOString();
+  const recipes = buildRecipeRows(ingredients, now);
+
+  let sql = 'DELETE FROM recipes;';
+  if (recipes.length > 0) {
+    sql += `\n${recipes.map((recipe) => recipeInsertSql(recipe)).join('\n')}`;
+  }
+
+  await runSql(sql);
+
+  return {
+    recipes: await queryRecipes(),
+    ingredientCount: ingredients.length,
+    recipeCount: recipes.length
+  };
+}
+
+async function clearDatabase() {
+  await runSql(`
+    DELETE FROM food_entries;
+    DELETE FROM recipes;
+    DELETE FROM sqlite_sequence
+    WHERE name IN ('food_entries', 'recipes');
+  `);
+
+  return {
+    foodEntryCount: 0,
+    recipeCount: 0
+  };
 }
 
 async function cleanupExpiredSessions() {
@@ -1309,6 +1474,48 @@ async function handleApi(req, res, pathname, searchParams) {
       items: await queryItems(search),
       query: search
     });
+  }
+
+  if (pathname === '/api/recipes' && method === 'GET') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+
+    return sendJson(res, 200, {
+      recipes: await queryRecipes()
+    });
+  }
+
+  if (pathname === '/api/recipes/repopulate' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+
+    try {
+      const result = await repopulateRecipes();
+      return sendJson(res, 200, result);
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, {
+        error: error.message || 'Unable to repopulate recipes.'
+      });
+    }
+  }
+
+  if (pathname === '/api/admin/clear-database' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+
+    try {
+      const result = await clearDatabase();
+      return sendJson(res, 200, result);
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, {
+        error: error.message || 'Unable to clear database.'
+      });
+    }
   }
 
   if (pathname.startsWith('/api/items/') && method === 'GET') {
