@@ -478,6 +478,10 @@ input[readonly] {
   margin: 0;
 }
 
+.detail-back-button {
+  justify-self: start;
+}
+
 .detail-layout {
   display: grid;
   gap: 14px;

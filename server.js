@@ -1032,6 +1032,33 @@ async function queryRecipes(search = '') {
   return rows.map(deserializeRecipeRow);
 }
 
+async function queryItemsByNames(names) {
+  const normalizedNames = Array.from(
+    new Map(
+      names
+        .map((name) => String(name || '').trim())
+        .filter(Boolean)
+        .map((name) => [name.toLowerCase(), name])
+    ).values()
+  );
+
+  if (normalizedNames.length === 0) {
+    return [];
+  }
+
+  const clauses = normalizedNames
+    .map((name) => `lower(name) = ${sqlValue(name.toLowerCase())}`)
+    .join(' OR ');
+  const rows = await allSql(`
+    SELECT *
+    FROM food_entries
+    WHERE ${clauses}
+    ORDER BY name COLLATE NOCASE ASC, id ASC;
+  `);
+
+  return rows.map(deserializeRow);
+}
+
 async function queryRecipeScoresByNames(recipeNames) {
   const uniqueRecipeNames = Array.from(
     new Set(
@@ -1641,8 +1668,14 @@ async function handleApi(req, res, pathname, searchParams) {
 
   if (pathname === '/api/public-recipes' && method === 'GET') {
     const search = searchParams.get('q') || '';
+    const recipes = await queryRecipes(search);
+    const ingredients = await queryItemsByNames(
+      recipes.flatMap((recipe) => (recipe.tagged_ingredients || []).map((ingredient) => ingredient.name))
+    );
+
     return sendJson(res, 200, {
-      recipes: await queryRecipes(search),
+      recipes,
+      ingredients,
       query: search
     });
   }
