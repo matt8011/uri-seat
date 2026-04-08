@@ -27,6 +27,7 @@ html {
   scroll-behavior: smooth;
   background: var(--page-bg);
   overscroll-behavior-y: none;
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -423,7 +424,8 @@ input[readonly] {
 .ingredient-pill:hover .ingredient-pill-score,
 .ingredient-pill:focus .ingredient-pill-score,
 .ingredient-pill:focus-visible .ingredient-pill-score,
-.ingredient-pill:active .ingredient-pill-score {
+.ingredient-pill:active .ingredient-pill-score,
+.ingredient-pill[data-open='true'] .ingredient-pill-score {
   opacity: 1;
   transform: translate(-50%, 0);
 }
@@ -474,6 +476,10 @@ input[readonly] {
 
 .detail-copy {
   margin: 0;
+}
+
+.detail-back-button {
+  justify-self: start;
 }
 
 .detail-layout {
