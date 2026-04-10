@@ -92,6 +92,55 @@
 
   <button id="detailBackdrop" class="detail-backdrop hidden" type="button" aria-label="Close recipe details"></button>
 
+  <button
+    id="mealToggle"
+    class="meal-toggle"
+    type="button"
+    aria-controls="mealDrawer"
+    aria-expanded="false"
+    aria-label="Open My Meal"
+  >
+    <span class="meal-toggle-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64" role="presentation">
+        <circle cx="32" cy="32" r="22"></circle>
+        <circle cx="32" cy="32" r="14"></circle>
+        <path d="M10 20c4-7 12-12 22-12s18 5 22 12"></path>
+      </svg>
+    </span>
+    <span class="meal-toggle-label">My Meal</span>
+    <span id="mealToggleCount" class="meal-toggle-count hidden">0</span>
+  </button>
+
+  <aside id="mealDrawer" class="meal-drawer" aria-labelledby="mealDrawerTitle" aria-live="polite">
+    <div class="meal-drawer-header">
+      <div>
+        <p class="panel-kicker">My Meal</p>
+        <h2 id="mealDrawerTitle">Build your plate</h2>
+        <p id="mealDrawerMeta" class="detail-copy">
+          Add recipes from the catalog and customize their ingredients here.
+        </p>
+      </div>
+      <button
+        id="mealDrawerClose"
+        class="detail-close meal-drawer-close"
+        type="button"
+        aria-label="Close My Meal"
+      >
+        ×
+      </button>
+    </div>
+    <div class="meal-drawer-content">
+      <p id="mealEmptyState" class="empty-state hidden">Add a recipe to start building your meal.</p>
+      <div id="mealItems" class="meal-items"></div>
+    </div>
+    <div id="mealDrawerFooter" class="meal-drawer-footer">
+      <span>Overall Meal Sustainability Score</span>
+      <strong id="mealOverallScore">Pending</strong>
+    </div>
+  </aside>
+
+  <button id="mealBackdrop" class="detail-backdrop meal-backdrop hidden" type="button" aria-label="Close My Meal"></button>
+
   <script type="module" src="/app.js"></script>
 </body>
 </html>

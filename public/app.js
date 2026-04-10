@@ -7,6 +7,9 @@ import {
 } from '/shared.js';
 
 const PREVIEW_INGREDIENT_LIMIT = 4;
+const MEAL_STORAGE_KEY = 'seat-my-meal-v1';
+const INGREDIENT_SEARCH_MIN_CHARS = 2;
+const INGREDIENT_SEARCH_DEBOUNCE_MS = 180;
 
 const state = {
   recipes: [],
@@ -15,15 +18,23 @@ const state = {
   selectedIngredientKey: null,
   searchQuery: '',
   detailPanelOpen: false,
-  recipeScores: new Map()
+  mealDrawerOpen: false,
+  mealItems: loadMealItems(),
+  activeMealItemId: null,
+  ingredientSearchQuery: '',
+  ingredientSearchResults: [],
+  ingredientSearchLoading: false,
+  ingredientSearchError: ''
 };
 
 const compactDetailMedia = window.matchMedia('(max-width: 1080px)');
 const touchRecipePillMedia = window.matchMedia('(hover: none), (pointer: coarse)');
 let lockedScrollY = 0;
 let isDocumentScrollLocked = false;
-let wasOverlayVisible = false;
+let wasDetailOverlayVisible = false;
 let lockedScrollbarCompensation = 0;
+let ingredientSearchRequestId = 0;
+let ingredientSearchTimeoutId = 0;
 
 const elements = {
   searchForm: document.getElementById('searchForm'),
@@ -36,8 +47,71 @@ const elements = {
   detailClose: document.getElementById('detailClose'),
   detailBackdrop: document.getElementById('detailBackdrop'),
   detailTitle: document.getElementById('detailTitle'),
-  detailContent: document.getElementById('detailContent')
+  detailContent: document.getElementById('detailContent'),
+  mealToggle: document.getElementById('mealToggle'),
+  mealToggleCount: document.getElementById('mealToggleCount'),
+  mealDrawer: document.getElementById('mealDrawer'),
+  mealDrawerClose: document.getElementById('mealDrawerClose'),
+  mealBackdrop: document.getElementById('mealBackdrop'),
+  mealDrawerMeta: document.getElementById('mealDrawerMeta'),
+  mealDrawerFooter: document.getElementById('mealDrawerFooter'),
+  mealItems: document.getElementById('mealItems'),
+  mealEmptyState: document.getElementById('mealEmptyState'),
+  mealOverallScore: document.getElementById('mealOverallScore')
 };
+
+function loadMealItems() {
+  try {
+    const rawValue = window.sessionStorage.getItem(MEAL_STORAGE_KEY);
+    if (!rawValue) {
+      return [];
+    }
+
+    const parsedValue = JSON.parse(rawValue);
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return parsedValue.map(sanitizeMealItem).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function persistMealItems() {
+  try {
+    window.sessionStorage.setItem(MEAL_STORAGE_KEY, JSON.stringify(state.mealItems));
+  } catch {
+    // Ignore storage failures so the meal builder still works for the session.
+  }
+}
+
+function roundMetric(value, precision = 4) {
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+}
+
+function averageValues(values) {
+  if (!values.length) {
+    return null;
+  }
+
+  let total = 0;
+  for (const value of values) {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const normalizedValue = Number(value);
+    if (!Number.isFinite(normalizedValue)) {
+      return null;
+    }
+
+    total += normalizedValue;
+  }
+
+  return roundMetric(total / values.length);
+}
 
 function isCompactDetailMode() {
   return compactDetailMedia.matches;
@@ -82,31 +156,263 @@ function setDocumentScrollLock(locked) {
   isDocumentScrollLocked = locked;
 }
 
-function syncDetailPanelVisibility() {
+function normalizeIngredientKey(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function snapshotIngredient(ingredient) {
+  const name = String(ingredient?.name || '').trim();
+  if (!name) {
+    return null;
+  }
+
+  return {
+    id: ingredient?.id ?? null,
+    name,
+    sustainability_index:
+      ingredient?.sustainability_index === null || ingredient?.sustainability_index === undefined
+        ? null
+        : Number(ingredient.sustainability_index)
+  };
+}
+
+function dedupeIngredients(ingredients) {
+  const uniqueIngredients = new Map();
+
+  for (const ingredient of ingredients || []) {
+    const snapshot = snapshotIngredient(ingredient);
+    if (!snapshot) {
+      continue;
+    }
+
+    const ingredientKey = normalizeIngredientKey(snapshot.name);
+    if (!uniqueIngredients.has(ingredientKey)) {
+      uniqueIngredients.set(ingredientKey, snapshot);
+    }
+  }
+
+  return Array.from(uniqueIngredients.values());
+}
+
+function createMealItem(recipe) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    recipeId: recipe.id,
+    recipeName: recipe.name,
+    ingredients: dedupeIngredients(recipe.tagged_ingredients || [])
+  };
+}
+
+function sanitizeMealItem(value) {
+  const recipeName = String(value?.recipeName || '').trim();
+  const ingredients = dedupeIngredients(value?.ingredients || []);
+
+  if (!recipeName) {
+    return null;
+  }
+
+  return {
+    id: String(value?.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+    recipeId: value?.recipeId === null || value?.recipeId === undefined ? null : Number(value.recipeId),
+    recipeName,
+    ingredients
+  };
+}
+
+function getSelectedRecipe() {
+  return state.recipes.find((entry) => entry.id === state.selectedRecipeId) || null;
+}
+
+function getSelectedIngredient() {
+  if (!state.selectedIngredientKey) {
+    return null;
+  }
+
+  return state.ingredientsByKey.get(state.selectedIngredientKey) || null;
+}
+
+function getMealItemById(itemId) {
+  return state.mealItems.find((mealItem) => mealItem.id === itemId) || null;
+}
+
+function resetIngredientSearch() {
+  state.ingredientSearchQuery = '';
+  state.ingredientSearchResults = [];
+  state.ingredientSearchLoading = false;
+  state.ingredientSearchError = '';
+  ingredientSearchRequestId += 1;
+  window.clearTimeout(ingredientSearchTimeoutId);
+}
+
+function getMealItemScore(mealItem) {
+  return averageValues(mealItem.ingredients.map((ingredient) => ingredient.sustainability_index));
+}
+
+function getOverallMealScore() {
+  if (!state.mealItems.length) {
+    return null;
+  }
+
+  return averageValues(state.mealItems.map((mealItem) => getMealItemScore(mealItem)));
+}
+
+function updateMealItems(nextMealItems) {
+  state.mealItems = nextMealItems.map(sanitizeMealItem).filter(Boolean);
+  if (state.activeMealItemId && !getMealItemById(state.activeMealItemId)) {
+    state.activeMealItemId = null;
+    resetIngredientSearch();
+  }
+
+  persistMealItems();
+  renderMealDrawer();
+}
+
+function setMealEditor(itemId) {
+  if (!getMealItemById(itemId)) {
+    return;
+  }
+
+  if (state.activeMealItemId === itemId) {
+    state.activeMealItemId = null;
+    resetIngredientSearch();
+    renderMealDrawer();
+    return;
+  }
+
+  state.activeMealItemId = itemId;
+  resetIngredientSearch();
+  renderMealDrawer();
+  focusMealSearchInput(itemId);
+}
+
+function focusMealSearchInput(itemId) {
+  requestAnimationFrame(() => {
+    const input = Array.from(elements.mealItems.querySelectorAll('[data-meal-ingredient-search]')).find(
+      (field) => field.dataset.mealItemId === itemId
+    );
+
+    if (input) {
+      input.focus();
+    }
+  });
+}
+
+function addRecipeToMeal(recipe) {
+  const newMealItem = createMealItem(recipe);
+  const shouldOpenDrawer = !state.mealItems.length || state.mealDrawerOpen;
+
+  if (shouldOpenDrawer) {
+    state.mealDrawerOpen = true;
+    state.activeMealItemId = newMealItem.id;
+    resetIngredientSearch();
+  }
+
+  updateMealItems([...state.mealItems, newMealItem]);
+}
+
+function removeMealItem(itemId) {
+  updateMealItems(state.mealItems.filter((mealItem) => mealItem.id !== itemId));
+}
+
+function removeIngredientFromMealItem(itemId, ingredientKey) {
+  updateMealItems(
+    state.mealItems.map((mealItem) => {
+      if (mealItem.id !== itemId) {
+        return mealItem;
+      }
+
+      return {
+        ...mealItem,
+        ingredients: mealItem.ingredients.filter(
+          (ingredient) => normalizeIngredientKey(ingredient.name) !== ingredientKey
+        )
+      };
+    })
+  );
+}
+
+function addIngredientToMealItem(itemId, ingredient) {
+  const ingredientSnapshot = snapshotIngredient(ingredient);
+  if (!ingredientSnapshot) {
+    return;
+  }
+
+  const ingredientKey = normalizeIngredientKey(ingredientSnapshot.name);
+  updateMealItems(
+    state.mealItems.map((mealItem) => {
+      if (mealItem.id !== itemId) {
+        return mealItem;
+      }
+
+      if (
+        mealItem.ingredients.some(
+          (existingIngredient) => normalizeIngredientKey(existingIngredient.name) === ingredientKey
+        )
+      ) {
+        return mealItem;
+      }
+
+      return {
+        ...mealItem,
+        ingredients: [...mealItem.ingredients, ingredientSnapshot]
+      };
+    })
+  );
+}
+
+function openMealDrawer() {
+  state.mealDrawerOpen = true;
+  if (isCompactDetailMode()) {
+    closeDetailPanel();
+  }
+  renderMealDrawer();
+}
+
+function closeMealDrawer() {
+  state.mealDrawerOpen = false;
+  syncOverlayVisibility();
+}
+
+function toggleMealDrawer() {
+  if (state.mealDrawerOpen) {
+    closeMealDrawer();
+    return;
+  }
+
+  openMealDrawer();
+}
+
+function syncOverlayVisibility() {
   const hasSelectedRecipe = state.recipes.some((recipe) => recipe.id === state.selectedRecipeId);
-  const compactMode = isCompactDetailMode();
-  const shouldShowOverlay = compactMode && state.detailPanelOpen && hasSelectedRecipe;
+  const shouldShowDetailOverlay = isCompactDetailMode() && state.detailPanelOpen && hasSelectedRecipe;
 
-  elements.detailPanel.classList.toggle('is-open', shouldShowOverlay);
-  elements.detailBackdrop.classList.toggle('hidden', !shouldShowOverlay);
-  elements.detailClose.classList.toggle('hidden', !compactMode);
-  document.body.classList.toggle('detail-panel-mobile-open', shouldShowOverlay);
-  setDocumentScrollLock(shouldShowOverlay);
+  elements.detailPanel.classList.toggle('is-open', shouldShowDetailOverlay);
+  elements.detailBackdrop.classList.toggle('hidden', !shouldShowDetailOverlay);
+  elements.detailClose.classList.toggle('hidden', !isCompactDetailMode());
+  elements.mealDrawer.classList.toggle('is-open', state.mealDrawerOpen);
+  elements.mealBackdrop.classList.toggle('hidden', !state.mealDrawerOpen);
+  elements.mealToggle.classList.toggle('is-hidden', state.mealDrawerOpen);
+  elements.mealToggle.setAttribute('aria-expanded', state.mealDrawerOpen ? 'true' : 'false');
+  document.body.classList.toggle('detail-panel-mobile-open', shouldShowDetailOverlay);
+  document.body.classList.toggle('meal-drawer-open', state.mealDrawerOpen);
+  setDocumentScrollLock(shouldShowDetailOverlay || state.mealDrawerOpen);
 
-  if (shouldShowOverlay && !wasOverlayVisible) {
+  if (shouldShowDetailOverlay && !wasDetailOverlayVisible) {
     requestAnimationFrame(() => {
       elements.detailPanel.scrollTop = 0;
       elements.detailContent.scrollTop = 0;
     });
   }
 
-  wasOverlayVisible = shouldShowOverlay;
+  wasDetailOverlayVisible = shouldShowDetailOverlay;
 }
 
 function closeDetailPanel() {
   state.detailPanelOpen = false;
   closeRecipePills();
-  syncDetailPanelVisibility();
+  syncOverlayVisibility();
 }
 
 function setRecipePillOpen(pill, open) {
@@ -127,24 +433,6 @@ function closeRecipePills(root = document, exception = null) {
 
     setRecipePillOpen(pill, false);
   }
-}
-
-function normalizeIngredientKey(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase();
-}
-
-function getSelectedRecipe() {
-  return state.recipes.find((entry) => entry.id === state.selectedRecipeId) || null;
-}
-
-function getSelectedIngredient() {
-  if (!state.selectedIngredientKey) {
-    return null;
-  }
-
-  return state.ingredientsByKey.get(state.selectedIngredientKey) || null;
 }
 
 function renderScoreLayout(entry) {
@@ -258,6 +546,249 @@ function renderIngredientScorePill(ingredient) {
   `;
 }
 
+function renderMealIngredientPills(mealItem, editable) {
+  if (!mealItem.ingredients.length) {
+    return '<span class="detail-copy">No ingredients selected yet.</span>';
+  }
+
+  return mealItem.ingredients
+    .map((ingredient) => {
+      const ingredientKey = normalizeIngredientKey(ingredient.name);
+      const scoreText = escapeHtml(formatMetric(ingredient.sustainability_index));
+      if (!editable) {
+        return `<span class="pill meal-ingredient-pill">${escapeHtml(ingredient.name)} · SI ${scoreText}</span>`;
+      }
+
+      return `
+        <button
+          class="pill meal-ingredient-pill meal-ingredient-pill-editable"
+          type="button"
+          data-meal-remove-ingredient
+          data-meal-item-id="${escapeHtml(mealItem.id)}"
+          data-ingredient-key="${escapeHtml(ingredientKey)}"
+          aria-label="Remove ${escapeHtml(ingredient.name)} from ${escapeHtml(mealItem.recipeName)}"
+        >
+          <span>${escapeHtml(ingredient.name)} · SI ${scoreText}</span>
+          <span aria-hidden="true">×</span>
+        </button>
+      `;
+    })
+    .join('');
+}
+
+function renderIngredientSearchResults(mealItem) {
+  const trimmedQuery = state.ingredientSearchQuery.trim();
+
+  if (state.ingredientSearchLoading) {
+    return '<p class="detail-copy meal-search-feedback">Searching ingredients...</p>';
+  }
+
+  if (state.ingredientSearchError) {
+    return `<p class="detail-copy meal-search-feedback">${escapeHtml(state.ingredientSearchError)}</p>`;
+  }
+
+  if (trimmedQuery.length < INGREDIENT_SEARCH_MIN_CHARS) {
+    return `<p class="detail-copy meal-search-feedback">Type at least ${INGREDIENT_SEARCH_MIN_CHARS} characters to search the ingredient catalog.</p>`;
+  }
+
+  const selectedIngredientKeys = new Set(
+    mealItem.ingredients.map((ingredient) => normalizeIngredientKey(ingredient.name))
+  );
+  const availableResults = state.ingredientSearchResults.filter(
+    (ingredient) => !selectedIngredientKeys.has(normalizeIngredientKey(ingredient.name))
+  );
+
+  if (!availableResults.length) {
+    return '<p class="detail-copy meal-search-feedback">No new ingredients matched that search.</p>';
+  }
+
+  return `
+    <div class="meal-search-results-grid">
+      ${availableResults
+        .map((ingredient) => {
+          const ingredientKey = normalizeIngredientKey(ingredient.name);
+          const scorePalette = getSustainabilityPalette(ingredient.sustainability_index);
+          return `
+            <button
+              class="meal-search-result"
+              type="button"
+              data-meal-add-ingredient
+              data-meal-item-id="${escapeHtml(mealItem.id)}"
+              data-ingredient-key="${escapeHtml(ingredientKey)}"
+            >
+              <span>${escapeHtml(ingredient.name)}</span>
+              <strong
+                class="meal-search-result-score"
+                style="background:linear-gradient(135deg, ${escapeHtml(scorePalette.background)}, ${escapeHtml(scorePalette.border)});color:${escapeHtml(scorePalette.text)};border-color:${escapeHtml(scorePalette.border)};"
+              >
+                SI ${escapeHtml(formatMetric(ingredient.sustainability_index))}
+              </strong>
+            </button>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+}
+
+function renderMealItems() {
+  if (!state.mealItems.length) {
+    return '';
+  }
+
+  return state.mealItems
+    .map((mealItem, index) => {
+      const mealItemScore = getMealItemScore(mealItem);
+      const scorePalette = getSustainabilityPalette(mealItemScore);
+      const isEditing = state.activeMealItemId === mealItem.id;
+
+      return `
+        <article class="meal-item-card${isEditing ? ' is-editing' : ''}">
+          <div class="meal-item-header">
+            <div>
+              <p class="panel-kicker">Meal Item ${escapeHtml(String(index + 1))}</p>
+              <h3>${escapeHtml(mealItem.recipeName)}</h3>
+              <p class="detail-copy">
+                ${escapeHtml(String(mealItem.ingredients.length))} ingredient${mealItem.ingredients.length === 1 ? '' : 's'} selected
+              </p>
+            </div>
+            <span
+              class="score-chip meal-score-chip"
+              style="background:${escapeHtml(scorePalette.background)};border:1px solid ${escapeHtml(scorePalette.border)};color:${escapeHtml(scorePalette.text)};"
+            >
+              SI ${escapeHtml(formatMetric(mealItemScore))}
+            </span>
+          </div>
+
+          <div class="meal-ingredient-list">
+            ${renderMealIngredientPills(mealItem, isEditing)}
+          </div>
+
+          <div class="meal-item-actions">
+            <button
+              class="button button-secondary"
+              type="button"
+              data-meal-edit-toggle
+              data-meal-item-id="${escapeHtml(mealItem.id)}"
+            >
+              ${isEditing ? 'Done Editing' : 'Edit Ingredients'}
+            </button>
+            <button
+              class="button button-ghost"
+              type="button"
+              data-meal-remove
+              data-meal-item-id="${escapeHtml(mealItem.id)}"
+            >
+              Remove from Meal
+            </button>
+          </div>
+
+          ${isEditing
+            ? `
+              <div class="meal-editor">
+                <label class="meal-search-label">
+                  <span>Add ingredients</span>
+                  <input
+                    type="search"
+                    value="${escapeHtml(state.ingredientSearchQuery)}"
+                    placeholder="Search bacon, spinach, tomato..."
+                    autocomplete="off"
+                    data-meal-ingredient-search
+                    data-meal-item-id="${escapeHtml(mealItem.id)}"
+                  >
+                </label>
+                <p class="detail-copy">
+                  Remove ingredients above or search the full ingredient database to add more.
+                </p>
+                <div class="meal-search-results" data-meal-search-results>
+                  ${renderIngredientSearchResults(mealItem)}
+                </div>
+              </div>
+            `
+            : ''}
+        </article>
+      `;
+    })
+    .join('');
+}
+
+function renderMealDrawer() {
+  const mealItemCount = state.mealItems.length;
+  const overallMealScore = getOverallMealScore();
+  const overallScorePalette = getSustainabilityPalette(overallMealScore);
+
+  elements.mealItems.innerHTML = renderMealItems();
+  elements.mealEmptyState.classList.toggle('hidden', mealItemCount !== 0);
+  elements.mealDrawerFooter.classList.toggle('hidden', mealItemCount === 0);
+  elements.mealToggleCount.textContent = String(mealItemCount);
+  elements.mealToggleCount.classList.toggle('hidden', mealItemCount === 0);
+  elements.mealDrawerMeta.textContent = mealItemCount
+    ? `${mealItemCount} meal item${mealItemCount === 1 ? '' : 's'} saved for this browser session.`
+    : 'Add recipes from the catalog and customize their ingredients here.';
+  elements.mealOverallScore.textContent = formatMetric(overallMealScore);
+  elements.mealOverallScore.style.background = `linear-gradient(135deg, ${overallScorePalette.background}, ${overallScorePalette.border})`;
+  elements.mealOverallScore.style.color = overallScorePalette.text;
+  elements.mealOverallScore.style.borderColor = overallScorePalette.border;
+  elements.mealToggle.setAttribute(
+    'aria-label',
+    mealItemCount ? `Open My Meal with ${mealItemCount} items` : 'Open My Meal'
+  );
+  syncOverlayVisibility();
+}
+
+function renderActiveMealSearchResults() {
+  const activeMealItem = getMealItemById(state.activeMealItemId);
+  const resultsContainer = elements.mealItems.querySelector('[data-meal-search-results]');
+
+  if (!activeMealItem || !resultsContainer) {
+    return;
+  }
+
+  resultsContainer.innerHTML = renderIngredientSearchResults(activeMealItem);
+}
+
+async function searchIngredients(query) {
+  const trimmedQuery = query.trim();
+  const requestId = ++ingredientSearchRequestId;
+  window.clearTimeout(ingredientSearchTimeoutId);
+
+  if (trimmedQuery.length < INGREDIENT_SEARCH_MIN_CHARS) {
+    state.ingredientSearchResults = [];
+    state.ingredientSearchLoading = false;
+    state.ingredientSearchError = '';
+    renderActiveMealSearchResults();
+    return;
+  }
+
+  state.ingredientSearchLoading = true;
+  state.ingredientSearchError = '';
+  renderActiveMealSearchResults();
+
+  ingredientSearchTimeoutId = window.setTimeout(async () => {
+    try {
+      const params = new URLSearchParams({ q: trimmedQuery });
+      const payload = await api(`/api/items?${params.toString()}`);
+
+      if (requestId !== ingredientSearchRequestId || trimmedQuery !== state.ingredientSearchQuery.trim()) {
+        return;
+      }
+
+      state.ingredientSearchResults = dedupeIngredients(payload.items || []);
+      state.ingredientSearchLoading = false;
+      renderActiveMealSearchResults();
+    } catch (error) {
+      if (requestId !== ingredientSearchRequestId) {
+        return;
+      }
+
+      state.ingredientSearchResults = [];
+      state.ingredientSearchLoading = false;
+      state.ingredientSearchError = error.message;
+      renderActiveMealSearchResults();
+    }
+  }, INGREDIENT_SEARCH_DEBOUNCE_MS);
+}
+
 async function loadRecipes(query = state.searchQuery) {
   state.searchQuery = query;
   const params = new URLSearchParams();
@@ -321,6 +852,11 @@ function renderResults() {
           ? renderIngredientPreview(taggedIngredients)
           : '<span class="detail-copy">No tagged ingredients yet.</span>'}
       </div>
+      <div class="result-actions">
+        <button class="button button-primary result-add-button" type="button">
+          Add to Meal
+        </button>
+      </div>
     `;
 
     card.addEventListener('click', () => {
@@ -331,6 +867,13 @@ function renderResults() {
       renderResults();
       renderDetail();
       elements.detailContent.scrollTop = 0;
+    });
+
+    const addButton = card.querySelector('.result-add-button');
+    addButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      addRecipeToMeal(recipe);
     });
 
     elements.resultsGrid.appendChild(card);
@@ -344,7 +887,7 @@ function renderDetail() {
     elements.detailTitle.textContent = 'Select a recipe';
     elements.detailContent.innerHTML =
       '<p>Choose a recipe card to inspect the currently visible public metrics and tagged ingredients.</p>';
-    syncDetailPanelVisibility();
+    syncOverlayVisibility();
     return;
   }
 
@@ -367,7 +910,7 @@ function renderDetail() {
         </p>
       </div>
     `;
-    syncDetailPanelVisibility();
+    syncOverlayVisibility();
     return;
   }
 
@@ -386,8 +929,11 @@ function renderDetail() {
           : '<span class="detail-copy">No tagged ingredients yet.</span>'}
       </div>
     </div>
+    <p class="detail-copy">
+      Add this recipe from its catalog card to include it in My Meal and customize its ingredients.
+    </p>
   `;
-  syncDetailPanelVisibility();
+  syncOverlayVisibility();
 }
 
 function handleDetailContentClick(event) {
@@ -430,6 +976,59 @@ function handleRecipePillClick(event) {
   setRecipePillOpen(pill, shouldOpen);
 }
 
+function handleMealDrawerClick(event) {
+  const editToggle = event.target.closest('[data-meal-edit-toggle]');
+  if (editToggle) {
+    event.preventDefault();
+    setMealEditor(editToggle.dataset.mealItemId || '');
+    return;
+  }
+
+  const removeButton = event.target.closest('[data-meal-remove]');
+  if (removeButton) {
+    event.preventDefault();
+    removeMealItem(removeButton.dataset.mealItemId || '');
+    return;
+  }
+
+  const removeIngredientButton = event.target.closest('[data-meal-remove-ingredient]');
+  if (removeIngredientButton) {
+    event.preventDefault();
+    removeIngredientFromMealItem(
+      removeIngredientButton.dataset.mealItemId || '',
+      removeIngredientButton.dataset.ingredientKey || ''
+    );
+    return;
+  }
+
+  const addIngredientButton = event.target.closest('[data-meal-add-ingredient]');
+  if (addIngredientButton) {
+    event.preventDefault();
+    const mealItemId = addIngredientButton.dataset.mealItemId || '';
+    const ingredientKey = addIngredientButton.dataset.ingredientKey || '';
+    const ingredient = state.ingredientSearchResults.find(
+      (item) => normalizeIngredientKey(item.name) === ingredientKey
+    );
+    if (!ingredient) {
+      return;
+    }
+
+    addIngredientToMealItem(mealItemId, ingredient);
+    focusMealSearchInput(mealItemId);
+  }
+}
+
+function handleMealDrawerInput(event) {
+  const ingredientSearchInput = event.target.closest('[data-meal-ingredient-search]');
+  if (!ingredientSearchInput) {
+    return;
+  }
+
+  state.ingredientSearchQuery = ingredientSearchInput.value;
+  state.ingredientSearchError = '';
+  searchIngredients(state.ingredientSearchQuery);
+}
+
 elements.searchForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   await loadRecipes(elements.searchInput.value);
@@ -440,6 +1039,11 @@ elements.resultsGrid.addEventListener('click', handleRecipePillClick, true);
 elements.detailContent.addEventListener('click', handleDetailContentClick, true);
 elements.detailClose.addEventListener('click', closeDetailPanel);
 elements.detailBackdrop.addEventListener('click', closeDetailPanel);
+elements.mealToggle.addEventListener('click', toggleMealDrawer);
+elements.mealDrawerClose.addEventListener('click', closeMealDrawer);
+elements.mealBackdrop.addEventListener('click', closeMealDrawer);
+elements.mealItems.addEventListener('click', handleMealDrawerClick);
+elements.mealItems.addEventListener('input', handleMealDrawerInput);
 
 document.addEventListener('click', (event) => {
   if (event.target.closest('[data-recipe-pill]')) {
@@ -454,6 +1058,11 @@ window.addEventListener('keydown', (event) => {
     closeRecipePills();
   }
 
+  if (event.key === 'Escape' && state.mealDrawerOpen) {
+    closeMealDrawer();
+    return;
+  }
+
   if (event.key === 'Escape' && isCompactDetailMode() && state.detailPanelOpen) {
     closeDetailPanel();
   }
@@ -464,7 +1073,7 @@ compactDetailMedia.addEventListener('change', (event) => {
     state.detailPanelOpen = false;
     elements.detailContent.scrollTop = 0;
   }
-  syncDetailPanelVisibility();
+  syncOverlayVisibility();
 });
 
 window.addEventListener('resize', () => {
@@ -477,6 +1086,8 @@ window.addEventListener('resize', () => {
 });
 
 async function bootstrap() {
+  renderMealDrawer();
+
   try {
     await loadRecipes();
   } catch (error) {
