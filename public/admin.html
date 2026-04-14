@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin | URI Sustainable Eating Assessment Tool</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark">SEAT</span>
+        <span>
+          <strong>URI Sustainable Eating Assessment Tool (SEAT)</strong>
+          <small>Brought to you by URI Nutrition, Computer Science, and Dining</small>
+        </span>
+      </a>
+      <nav class="topbar-actions">
+        <a class="button button-ghost" href="/">Search</a>
+        <p id="adminNavLabel" class="topbar-note">Login</p>
+      </nav>
+    </header>
+
+    <main class="admin-layout">
+      <section class="panel auth-panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Access</p>
+            <h2>Login</h2>
+          </div>
+          <p class="panel-meta">Authorized users only</p>
+        </div>
+        <div id="authStatus" class="auth-status">Checking session...</div>
+        <div id="googleMount" class="google-mount hidden"></div>
+        <p id="authHint" class="auth-hint"></p>
+        <div class="auth-actions">
+          <button id="signOutButton" class="button button-ghost hidden" type="button">Sign Out</button>
+        </div>
+      </section>
+
+      <section id="adminWorkspace" class="admin-workspace hidden">
+        <section class="panel admin-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Manage</p>
+              <h2>Add ingredient entry</h2>
+            </div>
+            <p class="panel-meta">General, nutrition, and environmental details</p>
+          </div>
+
+          <form id="entryForm" class="entry-form">
+            <input type="hidden" id="entryId">
+
+            <section class="form-section">
+              <div class="section-heading">
+                <h3>General Food Details</h3>
+                <p>Public-facing catalog information and audit metadata.</p>
+              </div>
+              <div class="form-grid">
+                <label>
+                  <span>Food item name</span>
+                  <input id="name" type="text" required>
+                </label>
+                <label>
+                  <span>Sustainability Index</span>
+                  <input id="sustainability_index" type="number" step="0.01" readonly placeholder="Calculated later">
+                </label>
+                <label class="form-grid-span-2">
+                  <span>Tagged recipes</span>
+                  <input id="tagged_recipes" type="text" required placeholder="Comma-separated recipe tags">
+                </label>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <div class="section-heading">
+                <h3>Nutrition Details</h3>
+                <p>Enter the nutrient values used for later composite calculations.</p>
+              </div>
+              <div class="form-grid">
+                <label><span>Protein</span><input id="protein" type="number" step="0.01" required></label>
+                <label><span>Fiber</span><input id="fiber" type="number" step="0.01" required></label>
+                <label><span>Vitamin A</span><input id="vitamin_a" type="number" step="0.01" required></label>
+                <label><span>Vitamin C</span><input id="vitamin_c" type="number" step="0.01" required></label>
+                <label><span>Vitamin E</span><input id="vitamin_e" type="number" step="0.01" required></label>
+                <label><span>Calcium</span><input id="calcium" type="number" step="0.01" required></label>
+                <label><span>Iron</span><input id="iron" type="number" step="0.01" required></label>
+                <label><span>Magnesium</span><input id="magnesium" type="number" step="0.01" required></label>
+                <label><span>Potassium</span><input id="potassium" type="number" step="0.01" required></label>
+                <label><span>Saturated Fat</span><input id="saturated_fat" type="number" step="0.01" required></label>
+                <label><span>Added Sugar</span><input id="added_sugar" type="number" step="0.01" required></label>
+                <label><span>Sodium</span><input id="sodium" type="number" step="0.01" required></label>
+                <label><span>Nutrient Rich Food Index</span><input id="nutrient_rich_food_index" type="number" step="0.01" readonly placeholder="Calculated later"></label>
+                <label><span>Nutrition Composite Score</span><input id="nutrition_composite_score" type="number" step="0.01" readonly placeholder="Calculated later"></label>
+              </div>
+            </section>
+
+            <section class="form-section">
+              <div class="section-heading">
+                <h3>Environmental Details</h3>
+                <p>Enter the raw environmental measurements directly for each food item.</p>
+              </div>
+              <div class="form-grid">
+                <label><span>2-1 Freshwater Withdrawals (L/FU)</span><input id="freshwater_withdrawals" type="number" step="0.01" required></label>
+                <label><span>2-2 Stress-Weighted Water Use (L/FU)</span><input id="stress_weighted_water_use" type="number" step="0.01" required></label>
+                <label><span>2-3 Acidifying Emissions (g SO2-eq/FU)</span><input id="acidifying_emissions" type="number" step="0.01" required></label>
+                <label><span>2-4 Eutrophying Emissions (g PO43-eq/FU)</span><input id="eutrophying_emissions" type="number" step="0.01" required></label>
+                <label><span>2-5 GHG Emissions (kg CO2-eq/FU)</span><input id="ghg_emissions" type="number" step="0.01" required></label>
+                <label><span>2-6 Land Use (m^2/FU)</span><input id="land_use" type="number" step="0.01" required></label>
+                <label>
+                  <span>Water Use Score</span>
+                  <input id="water_use_score" type="number" step="0.01" readonly placeholder="Calculated later">
+                </label>
+                <label>
+                  <span>Nitrogen Use Score</span>
+                  <input id="nitrogen_use_score" type="number" step="0.01" readonly placeholder="Calculated later">
+                </label>
+                <label>
+                  <span>Carbon Use Score</span>
+                  <input id="carbon_use_score" type="number" step="0.01" readonly placeholder="Calculated later">
+                </label>
+                <label>
+                  <span>Land Use Score</span>
+                  <input id="land_use_score" type="number" step="0.01" readonly placeholder="Calculated later">
+                </label>
+                <label>
+                  <span>Environmental Composite Score</span>
+                  <input id="environmental_composite_score" type="number" step="0.01" readonly placeholder="Calculated later">
+                </label>
+              </div>
+            </section>
+
+            <div class="form-actions">
+              <button class="button button-primary" type="submit">Save entry</button>
+              <button id="cancelEdit" class="button button-ghost hidden" type="button">Cancel edit</button>
+            </div>
+          </form>
+
+          <div id="adminMessage" class="admin-message"></div>
+        </section>
+
+        <section class="panel import-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Bulk import</p>
+              <h2>Upload CSV</h2>
+            </div>
+            <p class="panel-meta">JSON API also supported</p>
+          </div>
+          <div class="import-controls">
+            <label class="file-picker">
+              <span>CSV file</span>
+              <input id="csvFile" type="file" accept=".csv,text/csv">
+            </label>
+            <label class="checkbox-row">
+              <input id="replaceExisting" type="checkbox">
+              <span>Replace all existing food entries before import</span>
+            </label>
+            <button id="importButton" class="button button-secondary" type="button">Import CSV</button>
+            <button id="exportIngredientsButton" class="button button-ghost" type="button">Export Ingredients CSV</button>
+          </div>
+          <div id="importMessage" class="admin-message"></div>
+          <p class="hint-copy">
+            Expected headers: `name`, `tagged_recipes`, `protein`, `fiber`, `vitamin_a`, `vitamin_c`,
+            `vitamin_e`, `calcium`, `iron`, `magnesium`, `potassium`, `saturated_fat`, `added_sugar`,
+            `sodium`, `freshwater_withdrawals`, `stress_weighted_water_use`, `acidifying_emissions`,
+            `eutrophying_emissions`, `ghg_emissions`, and `land_use`.
+          </p>
+        </section>
+
+        <section class="panel import-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Recipes</p>
+              <h2>Repopulate Recipes</h2>
+            </div>
+            <p id="recipeTableSummary" class="panel-meta">Loading recipes...</p>
+          </div>
+          <div class="import-controls">
+            <button id="repopulateRecipesButton" class="button button-secondary" type="button">Repopulate Recipes</button>
+          </div>
+          <div id="recipeMessage" class="admin-message"></div>
+          <p class="hint-copy">
+            Rebuilds the recipe table from the current ingredient entries by averaging the sustainability
+            indexes of all ingredients tagged with each recipe.
+          </p>
+        </section>
+
+        <section class="panel admin-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Database</p>
+              <h2>Current ingredients (<span id="ingredientCount">0</span>)</h2>
+            </div>
+            <p id="adminTableSummary" class="panel-meta">Loading entries...</p>
+          </div>
+          <div class="table-controls">
+            <input type="search" id="ingredientSearch" class="table-search" placeholder="Search ingredients...">
+            <label class="checkbox-row">
+              <input id="incompleteFilter" type="checkbox">
+              <span>Show incomplete only</span>
+            </label>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Food item</th>
+                  <th>SI Score</th>
+                  <th>Tagged recipes</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminTableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination-controls">
+            <button id="ingredientPrevBtn" class="button button-ghost button-sm" type="button" disabled>&#8592; Prev</button>
+            <span id="ingredientPageInfo" class="pagination-info">Page 1 of 1</span>
+            <button id="ingredientNextBtn" class="button button-ghost button-sm" type="button" disabled>Next &#8594;</button>
+          </div>
+        </section>
+
+        <section class="panel admin-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Recipes</p>
+              <h2>Current recipes (<span id="recipeCount">0</span>)</h2>
+            </div>
+            <p id="recipeRangeSummary" class="panel-meta">Generated from ingredient tags</p>
+          </div>
+          <div class="table-controls">
+            <input type="search" id="recipeSearch" class="table-search" placeholder="Search recipes...">
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Recipe</th>
+                  <th>Sustainability Index</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="recipeTableBody"></tbody>
+            </table>
+          </div>
+          <div class="pagination-controls">
+            <button id="recipePrevBtn" class="button button-ghost button-sm" type="button" disabled>&#8592; Prev</button>
+            <span id="recipePageInfo" class="pagination-info">Page 1 of 1</span>
+            <button id="recipeNextBtn" class="button button-ghost button-sm" type="button" disabled>Next &#8594;</button>
+          </div>
+        </section>
+
+        <section class="panel import-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Danger Zone</p>
+              <h2>Clear Data</h2>
+            </div>
+            <p class="panel-meta">Irreversible deletions</p>
+          </div>
+          <div class="import-controls">
+            <button id="clearIngredientsButton" class="button button-danger" type="button">Clear Ingredients</button>
+            <button id="clearRecipesButton" class="button button-danger" type="button">Clear Recipes</button>
+          </div>
+          <div id="clearIngredientsMessage" class="admin-message"></div>
+          <div id="clearRecipesMessage" class="admin-message"></div>
+          <p class="hint-copy">
+            <strong>Clear Ingredients</strong> removes all ingredient entries and regenerated recipes.<br>
+            <strong>Clear Recipes</strong> removes only the recipes table.
+          </p>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="columnMappingDialog" class="mapping-dialog">
+    <div class="mapping-dialog-inner">
+      <div class="mapping-dialog-header">
+        <h3>Map CSV Columns</h3>
+        <p>Some columns could not be automatically matched. Choose a database field for each, or ignore it.</p>
+      </div>
+      <div id="columnMappingList" class="mapping-list"></div>
+      <div class="mapping-dialog-actions">
+        <button id="columnMappingCancel" class="button button-ghost" type="button">Cancel</button>
+        <button id="columnMappingConfirm" class="button button-primary" type="button">Confirm mapping</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script type="module" src="/admin.js"></script>
+</body>
+</html>
