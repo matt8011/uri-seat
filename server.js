@@ -1237,6 +1237,70 @@ async function clearDatabase() {
   };
 }
 
+async function clearIngredients() {
+  await runSql(`
+    DELETE FROM food_entries;
+    DELETE FROM sqlite_sequence WHERE name='food_entries';
+  `);
+  await repopulateRecipes();
+  return { foodEntryCount: 0, recipeCount: 0 };
+}
+
+async function clearRecipesOnly() {
+  await runSql(`
+    DELETE FROM recipes;
+    DELETE FROM sqlite_sequence WHERE name='recipes';
+  `);
+  return { recipeCount: 0 };
+}
+
+async function cleanRecipeTagFromIngredients(recipeName) {
+  const rows = await allSql('SELECT id, tagged_recipes FROM food_entries;');
+  const lower = recipeName.toLowerCase();
+  for (const row of rows) {
+    const tags = row.tagged_recipes ? JSON.parse(row.tagged_recipes) : [];
+    const filtered = tags.filter((t) => t.toLowerCase() !== lower);
+    if (filtered.length !== tags.length) {
+      await runSql(
+        `UPDATE food_entries SET tagged_recipes = ${sqlValue(JSON.stringify(filtered))} WHERE id = ${sqlValue(Number(row.id))};`
+      );
+    }
+  }
+}
+
+async function exportIngredientsCsv() {
+  const EXPORT_COLUMNS = [
+    'name', 'tagged_recipes', 'protein', 'fiber', 'vitamin_a', 'vitamin_c',
+    'vitamin_e', 'calcium', 'iron', 'magnesium', 'potassium', 'saturated_fat',
+    'added_sugar', 'sodium', 'freshwater_withdrawals', 'stress_weighted_water_use',
+    'acidifying_emissions', 'eutrophying_emissions', 'ghg_emissions', 'land_use'
+  ];
+
+  const rows = await allSql('SELECT * FROM food_entries ORDER BY name COLLATE NOCASE ASC, id ASC;');
+  const items = rows.map(deserializeRow);
+
+  function csvCell(value) {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  const header = EXPORT_COLUMNS.join(',');
+  const dataRows = items.map((item) =>
+    EXPORT_COLUMNS.map((col) => {
+      if (col === 'tagged_recipes') {
+        return csvCell((item.tagged_recipes || []).join(', '));
+      }
+      return csvCell(item[col]);
+    }).join(',')
+  );
+
+  return [header, ...dataRows].join('\n');
+}
+
 async function cleanupExpiredSessions() {
   await runSql(`DELETE FROM sessions WHERE expires_at <= ${sqlValue(new Date().toISOString())};`);
 }
@@ -1551,6 +1615,25 @@ function serveStatic(pathname, method, res) {
   return true;
 }
 
+const IMPORTABLE_COLUMNS = new Set([
+  'name', 'tagged_recipes', 'protein', 'fiber', 'vitamin_a', 'vitamin_c',
+  'vitamin_e', 'calcium', 'iron', 'magnesium', 'potassium', 'saturated_fat',
+  'added_sugar', 'sodium', 'freshwater_withdrawals', 'stress_weighted_water_use',
+  'acidifying_emissions', 'eutrophying_emissions', 'ghg_emissions', 'land_use'
+]);
+
+function applyColumnMapping(record, columnMapping) {
+  const mapped = {};
+  for (const [csvHeader, dbColumn] of Object.entries(columnMapping)) {
+    if (!dbColumn || !IMPORTABLE_COLUMNS.has(dbColumn)) continue;
+    const raw = record[csvHeader];
+    mapped[dbColumn] = (raw === undefined || raw === null || String(raw).trim() === '')
+      ? null
+      : raw;
+  }
+  return mapped;
+}
+
 async function handleCsvImport(req, res) {
   if (!await requireAdmin(req, res)) {
     return;
@@ -1560,11 +1643,15 @@ async function handleCsvImport(req, res) {
     const contentType = String(req.headers['content-type'] || '').toLowerCase();
     let csvText = '';
     let replaceExisting = false;
+    let columnMapping = null;
 
     if (contentType.includes('application/json')) {
       const body = await parseJsonBody(req);
       csvText = String(body.csvText || '');
       replaceExisting = Boolean(body.replaceExisting);
+      columnMapping = body.columnMapping && typeof body.columnMapping === 'object'
+        ? body.columnMapping
+        : null;
     } else {
       csvText = await parseTextBody(req);
       replaceExisting = String(req.headers['x-replace-existing'] || '').toLowerCase() === 'true';
@@ -1580,32 +1667,100 @@ async function handleCsvImport(req, res) {
       return sendJson(res, 400, { error: 'CSV file only contained a header row.' });
     }
 
-    const items = [];
-    for (let index = 0; index < records.length; index += 1) {
-      const payload = csvRecordToPayload(records[index]);
-      const validated = validateFoodPayload(payload);
-      if (validated.error) {
-        return sendJson(res, 400, {
-          error: `Row ${index + 2}: ${validated.error}`
-        });
+    // If no columnMapping provided, build one by auto-matching headers from the first record
+    if (!columnMapping) {
+      columnMapping = {};
+      for (const header of Object.keys(records[0])) {
+        if (IMPORTABLE_COLUMNS.has(header)) {
+          columnMapping[header] = header;
+        }
       }
-      items.push(validated.value);
     }
 
     const now = new Date().toISOString();
-    let sql = '';
-    if (replaceExisting) {
-      sql += 'DELETE FROM food_entries;';
-    }
-    sql += items.map((item) => foodInsertSql(item, now)).join('\n');
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
 
-    await runSql(sql);
+    if (replaceExisting) {
+      await runSql('DELETE FROM food_entries;');
+    }
+
+    for (let index = 0; index < records.length; index += 1) {
+      const mapped = applyColumnMapping(records[index], columnMapping);
+
+      const name = String(mapped.name || '').trim();
+      if (!name) {
+        skipped += 1;
+        continue;
+      }
+
+      const existing = await getSql(
+        `SELECT * FROM food_entries WHERE lower(name) = lower(${sqlValue(name)}) LIMIT 1;`
+      );
+
+      if (existing && !replaceExisting) {
+        // Non-destructive update: only overwrite columns where CSV provides a real value
+        const existingItem = deserializeRow(existing);
+        const merged = { ...existingItem };
+
+        for (const [dbCol, csvVal] of Object.entries(mapped)) {
+          if (dbCol === 'name') continue; // name is the match key
+          if (csvVal !== null && csvVal !== undefined) {
+            if (dbCol === 'tagged_recipes') {
+              merged[dbCol] = normalizeRecipes(csvVal);
+            } else {
+              const num = normalizeNumber(csvVal);
+              if (num !== null) merged[dbCol] = num;
+            }
+          }
+        }
+
+        const recalculated = withCalculatedFields(merged);
+        await runSql(foodUpdateSql(existingItem.id, recalculated, now));
+        updated += 1;
+      } else {
+        // Insert new row - missing columns stay null
+        const item = {
+          name,
+          tagged_recipes: mapped.tagged_recipes !== null
+            ? normalizeRecipes(mapped.tagged_recipes)
+            : [],
+          sustainability_index: null,
+          nutrient_rich_food_index: null,
+          nutrition_composite_score: null,
+          environmental_composite_score: null,
+          water_use_score: null,
+          nitrogen_use_score: null,
+          carbon_use_score: null,
+          land_use_score: null,
+          protein: normalizeNumber(mapped.protein),
+          fiber: normalizeNumber(mapped.fiber),
+          vitamin_a: normalizeNumber(mapped.vitamin_a),
+          vitamin_c: normalizeNumber(mapped.vitamin_c),
+          vitamin_e: normalizeNumber(mapped.vitamin_e),
+          calcium: normalizeNumber(mapped.calcium),
+          iron: normalizeNumber(mapped.iron),
+          magnesium: normalizeNumber(mapped.magnesium),
+          potassium: normalizeNumber(mapped.potassium),
+          saturated_fat: normalizeNumber(mapped.saturated_fat),
+          added_sugar: normalizeNumber(mapped.added_sugar),
+          sodium: normalizeNumber(mapped.sodium),
+          freshwater_withdrawals: normalizeNumber(mapped.freshwater_withdrawals),
+          stress_weighted_water_use: normalizeNumber(mapped.stress_weighted_water_use),
+          acidifying_emissions: normalizeNumber(mapped.acidifying_emissions),
+          eutrophying_emissions: normalizeNumber(mapped.eutrophying_emissions),
+          ghg_emissions: normalizeNumber(mapped.ghg_emissions),
+          land_use: normalizeNumber(mapped.land_use)
+        };
+        await runSql(foodInsertSql(withCalculatedFields(item), now));
+        inserted += 1;
+      }
+    }
+
     await repopulateRecipes();
 
-    return sendJson(res, 200, {
-      imported: items.length,
-      replacedExisting: replaceExisting
-    });
+    return sendJson(res, 200, { inserted, updated, skipped });
   } catch (error) {
     console.error(error);
     return sendJson(res, 400, {
@@ -1817,6 +1972,73 @@ async function handleApi(req, res, pathname, searchParams) {
     await runSql(`DELETE FROM food_entries WHERE id = ${sqlValue(id)};`);
     await repopulateRecipes();
     return sendJson(res, 200, { success: true });
+  }
+
+  if (pathname === '/api/admin/clear-ingredients' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const result = await clearIngredients();
+      return sendJson(res, 200, result);
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Unable to clear ingredients.' });
+    }
+  }
+
+  if (pathname === '/api/admin/clear-recipes' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const result = await clearRecipesOnly();
+      return sendJson(res, 200, result);
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Unable to clear recipes.' });
+    }
+  }
+
+  if (pathname === '/api/admin/export' && method === 'GET') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const csvText = await exportIngredientsCsv();
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = `ingredients-export-${date}.csv`;
+      const buf = Buffer.from(csvText, 'utf-8');
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': buf.length,
+        'Cache-Control': 'no-store'
+      });
+      res.end(buf);
+      return;
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Export failed.' });
+    }
+  }
+
+  if (pathname.startsWith('/api/recipes/') && method === 'DELETE') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    const id = Number(pathname.split('/').pop());
+    if (!Number.isInteger(id)) {
+      return sendJson(res, 400, { error: 'Invalid recipe id.' });
+    }
+    const recipeRow = await getSql(`SELECT * FROM recipes WHERE id = ${sqlValue(id)} LIMIT 1;`);
+    if (!recipeRow) {
+      return sendJson(res, 404, { error: 'Recipe not found.' });
+    }
+    const recipeName = recipeRow.name;
+    await runSql(`DELETE FROM recipes WHERE id = ${sqlValue(id)};`);
+    await cleanRecipeTagFromIngredients(recipeName);
+    return sendJson(res, 200, { deleted: true });
   }
 
   return sendJson(res, 404, { error: 'Not found.' });
