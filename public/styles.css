@@ -2591,6 +2591,27 @@ input[readonly] {
   padding: 28px 32px;
   margin-top: 24px;
   margin-bottom: 24px;
+  position: relative;
+  z-index: 2;
+}
+
+.meal-plate-footer {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 20px;
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.button-danger {
+  background: rgba(169, 61, 48, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(169, 61, 48, 0.25);
+}
+
+.button-danger:hover {
+  background: rgba(169, 61, 48, 0.18);
+  border-color: rgba(169, 61, 48, 0.45);
 }
 
 .meal-plate-header {
@@ -2866,6 +2887,13 @@ input[readonly] {
   width: 280px;
   height: 280px;
   flex-shrink: 0;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 14px rgba(255, 255, 255, 0.95),
+    0 0 0 18px rgba(0, 33, 71, 0.09),
+    0 8px 32px rgba(0, 18, 40, 0.14);
+  overflow: hidden;
+  background: rgba(0, 33, 71, 0.03);
 }
 
 /* ─── Environmental circles (4-up) ─────────────────────── */
@@ -3078,10 +3106,33 @@ input[readonly] {
 .meal-recipe-search-result:hover { background:var(--primary-tint); }
 
 /* Nutrient tab layout */
-.nutrient-tab-layout { display:flex; gap:32px; align-items:flex-start; transition:all 200ms; }
-.nutrient-tab-layout.has-selection .nutrient-pie-col { flex:0 0 280px; }
-.nutrient-tab-layout:not(.has-selection) .nutrient-pie-col { flex:1; display:flex; justify-content:center; }
-.nutrient-info-panel { flex:1; background:rgba(0,33,71,0.03); border-radius:16px; border:1px solid var(--line); padding:18px; display:flex; flex-direction:column; gap:12px; }
+.nutrient-tab-layout { display:flex; gap:28px; align-items:flex-start; }
+
+/* Legend — always far left, fixed width */
+.nutrient-legend-col { flex:0 0 130px; display:flex; flex-direction:column; gap:6px; padding-top:8px; }
+.nutrient-legend-item { display:flex; align-items:center; gap:7px; font-size:0.78rem; color:var(--muted); transition:color 120ms; }
+.nutrient-legend-item.is-active { color:var(--text); font-weight:600; }
+
+/* Pie col: fills remaining space and centers pie when no selection */
+.nutrient-pie-col { flex:1; display:flex; flex-direction:column; align-items:center; }
+.nutrient-tab-layout.has-selection .nutrient-pie-col { flex:0 0 auto; }
+
+/* Info panel: slides in from the right */
+.nutrient-info-panel {
+  flex:1;
+  background:rgba(0,33,71,0.03);
+  border-radius:16px;
+  border:1px solid var(--line);
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  transform:none;
+  opacity:1;
+  transition:transform 300ms cubic-bezier(0.22,1,0.36,1), opacity 250ms ease;
+}
+.nutrient-info-panel.is-entering { transform:translateX(22px); opacity:0; }
+
 .nutrient-score-card { display:flex; flex-direction:column; gap:4px; padding:18px 20px; border-radius:16px; border:1px solid; margin-bottom:16px; }
 
 /* Catalog float */
@@ -3097,14 +3148,14 @@ input[readonly] {
 
 /* Star button */
 .result-card { display:flex; flex-direction:column; position:relative; }
-.result-card .card-tags { flex:1; }
+.result-card .card-tags { flex:none; }
 .result-actions { margin-top:auto; justify-content:center; }
 .star-btn { position:absolute; top:12px; right:12px; background:none; border:0; font-size:1.4rem; color:rgba(0,33,71,0.2); cursor:pointer; padding:2px; line-height:1; transition:color 140ms,transform 140ms; z-index:2; }
 .star-btn:hover { color:rgba(245,166,35,0.7); transform:scale(1.15); }
 .star-btn.is-starred { color:#f5a623; }
 
 /* Favorites section */
-.favorites-section { margin-bottom:24px; }
+.favorites-section { margin-bottom:24px; grid-column: 1 / -1; }
 .favorites-section .panel-kicker { margin-bottom:10px; }
 
 /* SI mini breakdown pie */

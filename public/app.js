@@ -124,6 +124,7 @@ const catalogSectionEl    = document.getElementById('catalogSection');
 const catalogFloatOverlay = document.getElementById('catalogFloatOverlay');
 const catalogFloatContent = document.getElementById('catalogFloatContent');
 const catalogRecipeSearch = document.getElementById('catalogRecipeSearch');
+const clearPlateBtnEl     = document.getElementById('clearPlateBtn');
 
 // ─── Favorites storage ────────────────────────────────────
 function loadFavorites() {
@@ -269,6 +270,36 @@ function getMealItemScore(mealItem) {
     totalWeight += weight;
   }
   return totalWeight > 0 ? roundMetric(weightedSum / totalWeight) : null;
+}
+
+// Split a meal item's weighted SI into nutrition / environmental portions
+// by preserving the recipe-level nut:env ratio.
+function getMealItemNutritionScore(mealItem) {
+  const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
+  if (!recipe) return null;
+  const rNut = recipe.nutrition_composite_score;
+  const rEnv = recipe.environmental_composite_score;
+  if (rNut == null) return null;
+  const si = getMealItemScore(mealItem);
+  if (si === null) return rNut;
+  if (rEnv == null) return si;
+  const total = rNut + rEnv;
+  if (total === 0) return null;
+  return roundMetric(si * (rNut / total));
+}
+
+function getMealItemEnvScore(mealItem) {
+  const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
+  if (!recipe) return null;
+  const rNut = recipe.nutrition_composite_score;
+  const rEnv = recipe.environmental_composite_score;
+  if (rEnv == null) return null;
+  const si = getMealItemScore(mealItem);
+  if (si === null) return rEnv;
+  if (rNut == null) return si;
+  const total = rNut + rEnv;
+  if (total === 0) return null;
+  return roundMetric(si * (rEnv / total));
 }
 
 function getOverallMealScore() {
@@ -673,15 +704,9 @@ function renderPlateInfoPanel() {
   const overallPal = getSustainabilityPalette(overallScore);
   const aggregates = getAggregateSlices();
 
-  // Compute nutrition and environmental composite averages
-  const nutScores = state.mealItems.map((mi) => {
-    const r = state.recipes.find((rec) => rec.id === mi.recipeId);
-    return r?.nutrition_composite_score ?? null;
-  }).filter((v) => v !== null);
-  const envScores = state.mealItems.map((mi) => {
-    const r = state.recipes.find((rec) => rec.id === mi.recipeId);
-    return r?.environmental_composite_score ?? null;
-  }).filter((v) => v !== null);
+  // Compute nutrition and environmental composite averages (ingredient-count weighted)
+  const nutScores = state.mealItems.map(getMealItemNutritionScore).filter((v) => v !== null);
+  const envScores = state.mealItems.map(getMealItemEnvScore).filter((v) => v !== null);
   const avgNutScore = nutScores.length ? roundMetric(nutScores.reduce((a, b) => a + b, 0) / nutScores.length) : null;
   const avgEnvScore = envScores.length ? roundMetric(envScores.reduce((a, b) => a + b, 0) / envScores.length) : null;
   const nutPal = getSustainabilityPalette(avgNutScore != null ? avgNutScore * 2 : null);
@@ -797,11 +822,8 @@ function renderNutrientTab() {
 
   const values = getAggregatedNutrientValues();
 
-  // Compute overall nutrition composite score
-  const nutScores = state.mealItems.map((mi) => {
-    const r = state.recipes.find((rec) => rec.id === mi.recipeId);
-    return r?.nutrition_composite_score ?? null;
-  }).filter((v) => v !== null);
+  // Compute overall nutrition composite score (ingredient-count weighted)
+  const nutScores = state.mealItems.map(getMealItemNutritionScore).filter((v) => v !== null);
   const avgNutScore = nutScores.length ? roundMetric(nutScores.reduce((a, b) => a + b, 0) / nutScores.length) : null;
   const nutPal = getSustainabilityPalette(avgNutScore != null ? avgNutScore * 2 : null);
 
@@ -816,7 +838,14 @@ function renderNutrientTab() {
     dimmed: hasSelection && state.activeNutrientKey !== nut.label,
   })).filter((s) => s.value > 0.0001);
 
-  const { svg, legendItems } = renderPieChart(slices);
+  const { svg } = renderPieChart(slices);
+
+  // Full legend — all visible nutrient slices, always shown at far left
+  const fullLegendHtml = slices.map((s) => `
+    <div class="legend-item nutrient-legend-item${state.activeNutrientKey === s.label ? ' is-active' : ''}">
+      <span class="legend-swatch" style="background:${escapeHtml(s.color)};"></span>
+      <span>${escapeHtml(s.label)}</span>
+    </div>`).join('');
 
   // Build info panel HTML if a nutrient is selected
   let infoPanelHtml = '';
@@ -858,12 +887,23 @@ function renderNutrientTab() {
   tabNutrientsEl.innerHTML = `
     ${scoreCardHtml}
     <div class="nutrient-tab-layout${hasSelection ? ' has-selection' : ''}">
+      <div class="nutrient-legend-col">
+        ${fullLegendHtml}
+      </div>
       <div class="nutrient-pie-col">
         <div id="nutrientPieContainer" class="pie-container nutrient-pie">${svg}</div>
-        <div id="nutrientPieLegend" class="pie-legend">${renderLegend(legendItems)}</div>
       </div>
       ${infoPanelHtml}
     </div>`;
+
+  // Animate info panel sliding in
+  if (hasSelection) {
+    const panel = tabNutrientsEl.querySelector('.nutrient-info-panel');
+    if (panel) {
+      panel.classList.add('is-entering');
+      requestAnimationFrame(() => requestAnimationFrame(() => panel.classList.remove('is-entering')));
+    }
+  }
 }
 
 // ─── Environmental tab ────────────────────────────────────
@@ -871,11 +911,23 @@ function getAvgEnvValues() {
   if (!state.mealItems.length) return {};
   const out = {};
   for (const ec of ENV_CIRCLES) {
-    const vals = state.mealItems.map((item) => {
-      const recipe = state.recipes.find((r) => r.id === item.recipeId);
-      return recipe != null ? ec.calc(recipe) : null;
-    }).filter((v) => v !== null && v !== undefined);
-    out[ec.id] = averageValues(vals);
+    let total = 0;
+    let weight = 0;
+    for (const item of state.mealItems) {
+      const allIngs = [...item.ingredients, ...(item.addedIngredients || [])];
+      for (const ing of allIngs) {
+        const count = getIngredientCount(item.id, normalizeIngredientKey(ing.name));
+        if (!count) continue;
+        const fullIng = state.ingredientsByKey.get(normalizeIngredientKey(ing.name));
+        if (!fullIng) continue;
+        const val = ec.calc(fullIng);
+        if (val !== null && val !== undefined && Number.isFinite(Number(val))) {
+          total += Number(val) * count;
+          weight += count;
+        }
+      }
+    }
+    out[ec.id] = weight > 0 ? roundMetric(total / weight) : null;
   }
   return out;
 }
@@ -902,11 +954,8 @@ function renderEnvTab() {
   const rawVals = getAvgEnvValues();
   const scoreVals = getAvgScoreValues();
 
-  // Compute overall environmental composite score
-  const envScores = state.mealItems.map((mi) => {
-    const r = state.recipes.find((rec) => rec.id === mi.recipeId);
-    return r?.environmental_composite_score ?? null;
-  }).filter((v) => v !== null);
+  // Compute overall environmental composite score (ingredient-count weighted)
+  const envScores = state.mealItems.map(getMealItemEnvScore).filter((v) => v !== null);
   const avgEnvScore = envScores.length ? roundMetric(envScores.reduce((a, b) => a + b, 0) / envScores.length) : null;
   const envPal = getSustainabilityPalette(avgEnvScore != null ? avgEnvScore * 2 : null);
 
@@ -926,14 +975,17 @@ function renderEnvTab() {
       ? Math.max(0, Math.min(100, Math.round(((score - 1) / 4) * 100)))
       : 0;
     const isActive = state.activeEnvCircle === ec.id;
-    const displayVal = rawVal !== null && rawVal !== undefined ? Number(rawVal).toFixed(2) : 'N/A';
     const displayScore = score !== null && score !== undefined ? formatMetric(score) : 'N/A';
+    const hasRaw = rawVal !== null && rawVal !== undefined;
+    const displayVal = hasRaw ? Number(rawVal).toFixed(2) : null;
 
     const tooltip = isActive
       ? `<div class="env4-tooltip">
           <strong>${escapeHtml(ec.label)}</strong>
           <span>${escapeHtml(ec.detail)}</span>
-          <span>${escapeHtml(displayVal)} ${escapeHtml(ec.unit)}</span>
+          ${hasRaw
+            ? `<span>${escapeHtml(displayVal)} ${escapeHtml(ec.unit)}</span>`
+            : `<span>Score: ${escapeHtml(displayScore)} / 5</span>`}
         </div>`
       : '';
 
@@ -1303,6 +1355,7 @@ plateInfoContEl.addEventListener('click', (event) => {
     const pid = ingMinus.dataset.portionId;
     const key = ingMinus.dataset.ingKey;
     setIngredientCount(pid, key, getIngredientCount(pid, key) - 1);
+    renderMealPlatePills();
     renderPlateInfoPanel();
     return;
   }
@@ -1313,6 +1366,7 @@ plateInfoContEl.addEventListener('click', (event) => {
     const pid = ingPlus.dataset.portionId;
     const key = ingPlus.dataset.ingKey;
     setIngredientCount(pid, key, getIngredientCount(pid, key) + 1);
+    renderMealPlatePills();
     renderPlateInfoPanel();
     return;
   }
@@ -1412,6 +1466,8 @@ function handleMealRecipeSearchInput(query) {
   if (!query.trim()) {
     state.mealRecipeSearchResults = [];
     renderPlateInfoPanel();
+    const el = plateInfoContEl.querySelector('[data-meal-recipe-search]');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
     return;
   }
   _mealRecipeSearchTimer = setTimeout(() => {
@@ -1419,7 +1475,11 @@ function handleMealRecipeSearchInput(query) {
     state.mealRecipeSearchResults = state.recipes.filter((r) =>
       r.name.toLowerCase().includes(q)
     );
-    if (state.mealRecipeSearch === query) renderPlateInfoPanel();
+    if (state.mealRecipeSearch === query) {
+      renderPlateInfoPanel();
+      const el = plateInfoContEl.querySelector('[data-meal-recipe-search]');
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }
   }, 200);
 }
 
@@ -1557,14 +1617,47 @@ catalogFloatOverlay.addEventListener('click', (event) => {
   }
 });
 
-// Close pills on outside click
-document.addEventListener('click', () => closeRecipePills());
+// Close pills on outside click; also deselect active portion when clicking outside the meal plate.
+// Guard: if renderPlatePie() replaced innerHTML before this bubbles, event.target is detached —
+// isConnected will be false, so we skip the deselect rather than firing it incorrectly.
+document.addEventListener('click', (event) => {
+  closeRecipePills();
+  if (
+    state.activePlatePortionId !== null &&
+    event.target.isConnected &&
+    !mealPlateEl.contains(event.target)
+  ) {
+    state.activePlatePortionId = null;
+    state.ingredientSearch = '';
+    state.ingredientSearchResults = [];
+    state.ingredientSearchPortionId = null;
+    renderPlatePie();
+    renderPlateInfoPanel();
+  }
+});
 
 // Search form
 searchFormEl.addEventListener('submit', async (event) => {
   event.preventDefault();
   await loadRecipes(searchInputEl.value);
   catalogSectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// Catalog recipe search (live filter)
+let _catalogSearchTimer = null;
+catalogRecipeSearch.addEventListener('input', () => {
+  clearTimeout(_catalogSearchTimer);
+  _catalogSearchTimer = setTimeout(() => loadRecipes(catalogRecipeSearch.value), 250);
+});
+
+// Clear plate button
+clearPlateBtnEl.addEventListener('click', () => {
+  state.activePlatePortionId = null;
+  state.ingredientCounts = {};
+  state.ingredientSearch = '';
+  state.ingredientSearchResults = [];
+  state.ingredientSearchPortionId = null;
+  updateMealItems([]);
 });
 
 // Keyboard
