@@ -12,6 +12,51 @@ import {
   parseRecipes
 } from '/shared.js';
 
+const DB_IMPORT_COLUMNS = [
+  'name', 'tagged_recipes', 'protein', 'fiber', 'vitamin_a', 'vitamin_c',
+  'vitamin_e', 'calcium', 'iron', 'magnesium', 'potassium', 'saturated_fat',
+  'added_sugar', 'sodium', 'freshwater_withdrawals', 'stress_weighted_water_use',
+  'acidifying_emissions', 'eutrophying_emissions', 'ghg_emissions', 'land_use'
+];
+
+const REQUIRED_FIELDS = [
+  'protein', 'fiber', 'vitamin_a', 'vitamin_c', 'vitamin_e',
+  'calcium', 'iron', 'magnesium', 'potassium', 'saturated_fat', 'added_sugar', 'sodium',
+  'freshwater_withdrawals', 'stress_weighted_water_use', 'acidifying_emissions',
+  'eutrophying_emissions', 'ghg_emissions', 'land_use'
+];
+
+function normalizeHeader(header) {
+  return String(header || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/, '');
+}
+
+function autoMatchHeader(csvHeader) {
+  const normalized = normalizeHeader(csvHeader);
+  return DB_IMPORT_COLUMNS.find((col) => col === normalized) ?? null;
+}
+
+function parseCsvFirstRow(csvText) {
+  const bom = csvText.charCodeAt(0) === 0xFEFF ? csvText.slice(1) : csvText;
+  const firstLine = bom.split(/\r?\n/)[0];
+  const headers = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < firstLine.length; i++) {
+    const ch = firstLine[i];
+    if (inQuotes) {
+      if (ch === '"' && firstLine[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { headers.push(field.trim()); field = ''; }
+      else { field += ch; }
+    }
+  }
+  headers.push(field.trim());
+  return headers;
+}
+
 const editableNumberFields = [
   'protein',
   'fiber',
@@ -75,6 +120,19 @@ const state = {
   authReady: false
 };
 
+// Pagination state
+const pagination = {
+  ingredientPage: 1,
+  ingredientPageSize: 15,
+  recipePage: 1,
+  recipePageSize: 15
+};
+
+// Filter/search state
+let ingredientSearchQuery = '';
+let recipeSearchQuery = '';
+let showIncompleteOnly = false;
+
 const elements = {
   adminNavLabel: document.getElementById('adminNavLabel'),
   signOutButton: document.getElementById('signOutButton'),
@@ -88,17 +146,83 @@ const elements = {
   adminMessage: document.getElementById('adminMessage'),
   adminTableBody: document.getElementById('adminTableBody'),
   adminTableSummary: document.getElementById('adminTableSummary'),
+  ingredientCount: document.getElementById('ingredientCount'),
+  ingredientSearch: document.getElementById('ingredientSearch'),
+  incompleteFilter: document.getElementById('incompleteFilter'),
+  ingredientPrevBtn: document.getElementById('ingredientPrevBtn'),
+  ingredientNextBtn: document.getElementById('ingredientNextBtn'),
+  ingredientPageInfo: document.getElementById('ingredientPageInfo'),
   csvFile: document.getElementById('csvFile'),
   replaceExisting: document.getElementById('replaceExisting'),
   importButton: document.getElementById('importButton'),
+  exportIngredientsButton: document.getElementById('exportIngredientsButton'),
   importMessage: document.getElementById('importMessage'),
   repopulateRecipesButton: document.getElementById('repopulateRecipesButton'),
   recipeMessage: document.getElementById('recipeMessage'),
   recipeTableBody: document.getElementById('recipeTableBody'),
   recipeTableSummary: document.getElementById('recipeTableSummary'),
-  clearDatabaseButton: document.getElementById('clearDatabaseButton'),
-  clearDatabaseMessage: document.getElementById('clearDatabaseMessage')
+  recipeRangeSummary: document.getElementById('recipeRangeSummary'),
+  recipeCount: document.getElementById('recipeCount'),
+  recipeSearch: document.getElementById('recipeSearch'),
+  recipePrevBtn: document.getElementById('recipePrevBtn'),
+  recipeNextBtn: document.getElementById('recipeNextBtn'),
+  recipePageInfo: document.getElementById('recipePageInfo'),
+  clearIngredientsButton: document.getElementById('clearIngredientsButton'),
+  clearIngredientsMessage: document.getElementById('clearIngredientsMessage'),
+  clearRecipesButton: document.getElementById('clearRecipesButton'),
+  clearRecipesMessage: document.getElementById('clearRecipesMessage'),
+  columnMappingDialog: document.getElementById('columnMappingDialog'),
+  columnMappingList: document.getElementById('columnMappingList'),
+  columnMappingConfirm: document.getElementById('columnMappingConfirm'),
+  columnMappingCancel: document.getElementById('columnMappingCancel')
 };
+
+function resolveColumnMapping(unmatchedHeaders) {
+  return new Promise((resolve) => {
+    elements.columnMappingList.innerHTML = '';
+
+    for (const header of unmatchedHeaders) {
+      const row = document.createElement('div');
+      row.className = 'mapping-row';
+      const options = DB_IMPORT_COLUMNS.map(
+        (col) => `<option value="${escapeHtml(col)}">${escapeHtml(col)}</option>`
+      ).join('');
+      row.innerHTML = `
+        <p class="mapping-row-label">Column <strong>"${escapeHtml(header)}"</strong> could not be matched.</p>
+        <select class="mapping-select" data-csv-header="${escapeHtml(header)}">
+          <option value="">— Ignore this column</option>
+          ${options}
+        </select>
+      `;
+      elements.columnMappingList.appendChild(row);
+    }
+
+    elements.columnMappingDialog.showModal();
+
+    const onConfirm = () => {
+      const mapping = {};
+      elements.columnMappingList.querySelectorAll('select[data-csv-header]').forEach((select) => {
+        mapping[select.dataset.csvHeader] = select.value || null;
+      });
+      cleanup();
+      resolve(mapping);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    function cleanup() {
+      elements.columnMappingDialog.close();
+      elements.columnMappingConfirm.removeEventListener('click', onConfirm);
+      elements.columnMappingCancel.removeEventListener('click', onCancel);
+    }
+
+    elements.columnMappingConfirm.addEventListener('click', onConfirm);
+    elements.columnMappingCancel.addEventListener('click', onCancel);
+  });
+}
 
 function getNumberValue(id) {
   const raw = document.getElementById(id).value.trim();
@@ -137,9 +261,14 @@ function setRecipeMessage(message, isError = false) {
   elements.recipeMessage.style.color = isError ? '#a93d30' : '';
 }
 
-function setClearDatabaseMessage(message, isError = false) {
-  elements.clearDatabaseMessage.textContent = message;
-  elements.clearDatabaseMessage.style.color = isError ? '#a93d30' : '';
+function setClearIngredientsMessage(message, isError = false) {
+  elements.clearIngredientsMessage.textContent = message;
+  elements.clearIngredientsMessage.style.color = isError ? '#a93d30' : '';
+}
+
+function setClearRecipesMessage(message, isError = false) {
+  elements.clearRecipesMessage.textContent = message;
+  elements.clearRecipesMessage.style.color = isError ? '#a93d30' : '';
 }
 
 async function loadConfig() {
@@ -155,12 +284,14 @@ async function loadSession() {
 async function loadItems() {
   const payload = await api('/api/items');
   state.items = payload.items;
+  pagination.ingredientPage = 1;
   renderAdminTable();
 }
 
 async function loadRecipes() {
   const payload = await api('/api/recipes');
   state.recipes = payload.recipes;
+  pagination.recipePage = 1;
   renderRecipeTable();
 }
 
@@ -201,6 +332,29 @@ function renderAuth() {
   }
 }
 
+function getFilteredItems() {
+  let filtered = state.items;
+  if (showIncompleteOnly) {
+    filtered = filtered.filter((item) =>
+      REQUIRED_FIELDS.some((f) => item[f] === null || item[f] === undefined)
+    );
+  }
+  if (ingredientSearchQuery) {
+    const q = ingredientSearchQuery.toLowerCase();
+    filtered = filtered.filter((item) =>
+      item.name.toLowerCase().includes(q) ||
+      (item.tagged_recipes || []).join(',').toLowerCase().includes(q)
+    );
+  }
+  return filtered;
+}
+
+function getFilteredRecipes() {
+  if (!recipeSearchQuery) return state.recipes;
+  const q = recipeSearchQuery.toLowerCase();
+  return state.recipes.filter((r) => r.name.toLowerCase().includes(q));
+}
+
 function renderAdminTable() {
   elements.adminTableBody.innerHTML = '';
 
@@ -209,13 +363,34 @@ function renderAdminTable() {
     return;
   }
 
-  elements.adminTableSummary.textContent = `Showing ${state.items.length} entr${state.items.length === 1 ? 'y' : 'ies'}`;
+  elements.ingredientCount.textContent = state.items.length;
 
-  for (const item of state.items) {
+  const filteredItems = getFilteredItems();
+  const total = filteredItems.length;
+  const pageSize = pagination.ingredientPageSize;
+  const page = pagination.ingredientPage;
+  const startIdx = (page - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  const pageItems = filteredItems.slice(startIdx, endIdx);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  if (total === 0) {
+    elements.adminTableSummary.textContent = 'No entries found.';
+  } else {
+    elements.adminTableSummary.textContent = `Showing ${startIdx + 1}–${endIdx} of ${total} ingredient${total === 1 ? '' : 's'}`;
+  }
+
+  elements.ingredientPrevBtn.disabled = page <= 1;
+  elements.ingredientNextBtn.disabled = page >= totalPages;
+  elements.ingredientPageInfo.textContent = `Page ${page} of ${totalPages}`;
+
+  for (const item of pageItems) {
+    const isMissing = REQUIRED_FIELDS.some((f) => item[f] === null || item[f] === undefined);
     const row = document.createElement('tr');
+    if (isMissing) row.classList.add('row-incomplete');
     row.innerHTML = `
       <td data-label="Food item">${escapeHtml(item.name)}</td>
-      <td data-label="GHG emissions">${escapeHtml(String(item.ghg_emissions ?? ''))}</td>
+      <td data-label="SI Score">${item.sustainability_index != null ? escapeHtml(item.sustainability_index.toFixed(2)) : ''}</td>
       <td data-label="Tagged recipes">${escapeHtml((item.tagged_recipes || []).join(', '))}</td>
       <td data-label="Updated">${escapeHtml(formatDateTime(item.updated_at))}</td>
       <td data-label="Actions">
@@ -233,11 +408,30 @@ function renderRecipeTable() {
   elements.recipeTableBody.innerHTML = '';
 
   if (!state.session?.isAdmin) {
-    elements.recipeTableSummary.textContent = 'Sign in as an admin to view recipes.';
+    elements.recipeRangeSummary.textContent = 'Sign in as an admin to view recipes.';
     return;
   }
 
-  elements.recipeTableSummary.textContent = `Showing ${state.recipes.length} recipe${state.recipes.length === 1 ? '' : 's'}`;
+  elements.recipeCount.textContent = state.recipes.length;
+
+  const filteredRecipes = getFilteredRecipes();
+  const total = filteredRecipes.length;
+  const pageSize = pagination.recipePageSize;
+  const page = pagination.recipePage;
+  const startIdx = (page - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  const pageRecipes = filteredRecipes.slice(startIdx, endIdx);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  if (total === 0) {
+    elements.recipeRangeSummary.textContent = state.recipes.length === 0 ? 'No recipes generated yet.' : 'No recipes match search.';
+  } else {
+    elements.recipeRangeSummary.textContent = `Showing ${startIdx + 1}–${endIdx} of ${total} recipe${total === 1 ? '' : 's'}`;
+  }
+
+  elements.recipePrevBtn.disabled = page <= 1;
+  elements.recipeNextBtn.disabled = page >= totalPages;
+  elements.recipePageInfo.textContent = `Page ${page} of ${totalPages}`;
 
   if (state.recipes.length === 0) {
     const row = document.createElement('tr');
@@ -245,17 +439,23 @@ function renderRecipeTable() {
       <td data-label="Recipe">No recipes generated yet.</td>
       <td data-label="Sustainability Index">Pending</td>
       <td data-label="Updated">N/A</td>
+      <td data-label="Actions"></td>
     `;
     elements.recipeTableBody.appendChild(row);
     return;
   }
 
-  for (const recipe of state.recipes) {
+  for (const recipe of pageRecipes) {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td data-label="Recipe">${escapeHtml(recipe.name)}</td>
       <td data-label="Sustainability Index">${escapeHtml(formatMetric(recipe.sustainability_index))}</td>
       <td data-label="Updated">${escapeHtml(formatDateTime(recipe.updated_at))}</td>
+      <td data-label="Actions">
+        <div class="table-actions">
+          <button class="button button-danger" type="button" data-action="delete-recipe" data-id="${recipe.id}" data-name="${escapeHtml(recipe.name)}">Delete</button>
+        </div>
+      </td>
     `;
     elements.recipeTableBody.appendChild(row);
   }
@@ -406,6 +606,8 @@ function renderGoogleButton() {
   state.authReady = true;
 }
 
+// --- Event listeners ---
+
 elements.signOutButton.addEventListener('click', async () => {
   await api('/api/auth/logout', { method: 'POST' });
   state.session = null;
@@ -486,6 +688,86 @@ elements.adminTableBody.addEventListener('click', async (event) => {
   }
 });
 
+elements.recipeTableBody.addEventListener('click', async (event) => {
+  const button = event.target.closest('button[data-action="delete-recipe"]');
+  if (!button) return;
+
+  const id = Number(button.dataset.id);
+  const name = button.dataset.name;
+  const confirmed = window.confirm(`Delete recipe "${name}"?`);
+  if (!confirmed) return;
+
+  try {
+    await api(`/api/recipes/${id}`, { method: 'DELETE' });
+    await loadRecipes();
+    await loadItems();
+    setRecipeMessage(`Recipe "${name}" deleted.`);
+  } catch (error) {
+    setRecipeMessage(error.message, true);
+  }
+});
+
+// Ingredient search
+let ingredientSearchTimer = null;
+elements.ingredientSearch.addEventListener('input', () => {
+  clearTimeout(ingredientSearchTimer);
+  ingredientSearchTimer = setTimeout(() => {
+    ingredientSearchQuery = elements.ingredientSearch.value.trim().toLowerCase();
+    pagination.ingredientPage = 1;
+    renderAdminTable();
+  }, 200);
+});
+
+// Incomplete filter
+elements.incompleteFilter.addEventListener('change', () => {
+  showIncompleteOnly = elements.incompleteFilter.checked;
+  pagination.ingredientPage = 1;
+  renderAdminTable();
+});
+
+// Ingredient pagination
+elements.ingredientPrevBtn.addEventListener('click', () => {
+  if (pagination.ingredientPage > 1) {
+    pagination.ingredientPage--;
+    renderAdminTable();
+  }
+});
+elements.ingredientNextBtn.addEventListener('click', () => {
+  const filteredItems = getFilteredItems();
+  const totalPages = Math.ceil(filteredItems.length / pagination.ingredientPageSize);
+  if (pagination.ingredientPage < totalPages) {
+    pagination.ingredientPage++;
+    renderAdminTable();
+  }
+});
+
+// Recipe search
+let recipeSearchTimer = null;
+elements.recipeSearch.addEventListener('input', () => {
+  clearTimeout(recipeSearchTimer);
+  recipeSearchTimer = setTimeout(() => {
+    recipeSearchQuery = elements.recipeSearch.value.trim().toLowerCase();
+    pagination.recipePage = 1;
+    renderRecipeTable();
+  }, 200);
+});
+
+// Recipe pagination
+elements.recipePrevBtn.addEventListener('click', () => {
+  if (pagination.recipePage > 1) {
+    pagination.recipePage--;
+    renderRecipeTable();
+  }
+});
+elements.recipeNextBtn.addEventListener('click', () => {
+  const filteredRecipes = getFilteredRecipes();
+  const totalPages = Math.ceil(filteredRecipes.length / pagination.recipePageSize);
+  if (pagination.recipePage < totalPages) {
+    pagination.recipePage++;
+    renderRecipeTable();
+  }
+});
+
 elements.importButton.addEventListener('click', async () => {
   const file = elements.csvFile.files?.[0];
   if (!file) {
@@ -496,19 +778,74 @@ elements.importButton.addEventListener('click', async () => {
   try {
     setImportMessage('Reading CSV...');
     const csvText = await file.text();
-    const payload = {
-      csvText,
-      replaceExisting: elements.replaceExisting.checked
-    };
 
+    const csvHeaders = parseCsvFirstRow(csvText);
+    if (!csvHeaders.length || csvHeaders.every((h) => !h)) {
+      setImportMessage('CSV file appears to be empty or has no headers.', true);
+      return;
+    }
+
+    const columnMapping = {};
+    const unmatchedHeaders = [];
+
+    for (const header of csvHeaders) {
+      if (!header) continue;
+      const match = autoMatchHeader(header);
+      if (match) {
+        columnMapping[header] = match;
+      } else {
+        unmatchedHeaders.push(header);
+      }
+    }
+
+    if (unmatchedHeaders.length > 0) {
+      const resolved = await resolveColumnMapping(unmatchedHeaders);
+      if (resolved === null) {
+        setImportMessage('Import cancelled.');
+        return;
+      }
+      Object.assign(columnMapping, resolved);
+    }
+
+    setImportMessage('Importing...');
     const result = await api('/api/items/import', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        csvText,
+        columnMapping,
+        replaceExisting: elements.replaceExisting.checked
+      })
     });
 
     await loadItems();
-    setImportMessage(`Imported ${result.imported} entr${result.imported === 1 ? 'y' : 'ies'}.`);
+    const parts = [];
+    if (result.inserted > 0) parts.push(`${result.inserted} inserted`);
+    if (result.updated > 0) parts.push(`${result.updated} updated`);
+    if (result.skipped > 0) parts.push(`${result.skipped} skipped (no name)`);
+    setImportMessage(parts.length ? parts.join(', ') + '.' : 'Nothing to import.');
     elements.csvFile.value = '';
+  } catch (error) {
+    setImportMessage(error.message, true);
+  }
+});
+
+elements.exportIngredientsButton.addEventListener('click', async () => {
+  try {
+    const response = await fetch('/api/admin/export', { credentials: 'same-origin' });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: 'Export failed.' }));
+      setImportMessage(err.error || 'Export failed.', true);
+      return;
+    }
+    const csvText = await response.text();
+    const date = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([csvText], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ingredients-export-${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   } catch (error) {
     setImportMessage(error.message, true);
   }
@@ -523,6 +860,7 @@ elements.repopulateRecipesButton.addEventListener('click', async () => {
     });
 
     state.recipes = result.recipes;
+    pagination.recipePage = 1;
     renderRecipeTable();
     setRecipeMessage(
       `Built ${result.recipeCount} recipe${result.recipeCount === 1 ? '' : 's'} from ${result.ingredientCount} ingredient entr${result.ingredientCount === 1 ? 'y' : 'ies'}.`
@@ -534,39 +872,59 @@ elements.repopulateRecipesButton.addEventListener('click', async () => {
   }
 });
 
-elements.clearDatabaseButton.addEventListener('click', async () => {
+elements.clearIngredientsButton.addEventListener('click', async () => {
   const firstConfirmation = window.confirm(
-    'Are you really sure you want to clear all ingredient and recipe data?'
+    'Are you sure you want to clear all ingredient AND recipe data?'
   );
-  if (!firstConfirmation) {
-    return;
-  }
+  if (!firstConfirmation) return;
 
   const secondConfirmation = window.confirm(
     'Are you really, really sure? This will delete all ingredient and recipe entries.'
   );
-  if (!secondConfirmation) {
-    return;
-  }
+  if (!secondConfirmation) return;
 
   try {
-    setClearDatabaseMessage('Clearing ingredient and recipe tables...');
-    elements.clearDatabaseButton.disabled = true;
-    await api('/api/admin/clear-database', {
-      method: 'POST'
-    });
+    setClearIngredientsMessage('Clearing ingredient and recipe tables...');
+    elements.clearIngredientsButton.disabled = true;
+    await api('/api/admin/clear-ingredients', { method: 'POST' });
     state.items = [];
     state.recipes = [];
     clearForm();
+    pagination.ingredientPage = 1;
+    pagination.recipePage = 1;
     renderAdminTable();
     renderRecipeTable();
-    setAdminMessage('Database cleared.');
-    setRecipeMessage('');
-    setClearDatabaseMessage('Database cleared.');
+    setClearIngredientsMessage('Ingredients and recipes cleared.');
   } catch (error) {
-    setClearDatabaseMessage(error.message, true);
+    setClearIngredientsMessage(error.message, true);
   } finally {
-    elements.clearDatabaseButton.disabled = false;
+    elements.clearIngredientsButton.disabled = false;
+  }
+});
+
+elements.clearRecipesButton.addEventListener('click', async () => {
+  const firstConfirmation = window.confirm(
+    'Are you sure you want to clear all recipe data only?'
+  );
+  if (!firstConfirmation) return;
+
+  const secondConfirmation = window.confirm(
+    'Are you really, really sure? This will delete all recipe entries.'
+  );
+  if (!secondConfirmation) return;
+
+  try {
+    setClearRecipesMessage('Clearing recipes table...');
+    elements.clearRecipesButton.disabled = true;
+    await api('/api/admin/clear-recipes', { method: 'POST' });
+    state.recipes = [];
+    pagination.recipePage = 1;
+    renderRecipeTable();
+    setClearRecipesMessage('Recipes cleared.');
+  } catch (error) {
+    setClearRecipesMessage(error.message, true);
+  } finally {
+    elements.clearRecipesButton.disabled = false;
   }
 });
 
