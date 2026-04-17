@@ -26,13 +26,13 @@
     </header>
 
     <main>
-      <section class="hero hero-public">
+      <!-- Hero — hides when meal items exist -->
+      <section class="hero hero-public" id="heroSection">
         <div class="hero-copy">
           <p class="eyebrow">Sustainable Eating Assessment Tool</p>
           <h1>How sustainable was your meal?</h1>
           <p class="hero-text">
-			Search URI Dining Hall recipes and explore the ingredient mix behind
-			each meal.
+            Search URI Dining Hall recipes and explore the ingredient mix behind each meal.
           </p>
           <form id="searchForm" class="searchbar">
             <label class="sr-only" for="searchInput">Search recipe or ingredient</label>
@@ -44,13 +44,11 @@
         <aside class="hero-panel">
           <div class="hero-metric">
             <span>Sustainability</span>
-            <strong>Find out the sustainability of your meal based on
-			environmental and nutritional factors</strong>
+            <strong>Find out the sustainability of your meal based on environmental and nutritional factors</strong>
           </div>
           <div class="hero-metric">
-            <span>Enviromental</span>
-            <strong>Look at the water usage, carbon footprint, nitrogen
-			footprint, and land use</strong>
+            <span>Environmental</span>
+            <strong>Look at the water usage, carbon footprint, nitrogen footprint, and land use</strong>
           </div>
           <div class="hero-metric">
             <span>Nutrition</span>
@@ -59,38 +57,76 @@
         </aside>
       </section>
 
-      <section class="content-grid">
-        <section id="catalogSection" class="panel panel-catalog">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Catalog</p>
-              <h2>Dining Hall Recipes</h2>
-            </div>
-            <p class="panel-meta">Open to all visitors</p>
+      <!-- Meal Plate — appears when meal items exist -->
+      <section id="mealPlate" class="panel meal-plate hidden">
+        <div class="meal-plate-header">
+          <div class="meal-plate-heading">
+            <p class="panel-kicker">My Meal</p>
+            <h2>Build your plate</h2>
           </div>
-          <div id="resultsGrid" class="results-grid"></div>
-          <p id="emptyState" class="empty-state hidden">No recipes matched that search.</p>
-        </section>
+          <div id="mealPlatePills" class="meal-header-pills"></div>
+          <div class="meal-plate-tabs" role="tablist">
+            <button class="tab-btn is-active" data-tab="foods" role="tab" aria-selected="true">Foods</button>
+            <button class="tab-btn" data-tab="nutrients" role="tab" aria-selected="false">Nutrients</button>
+            <button class="tab-btn" data-tab="environmental" role="tab" aria-selected="false">Environmental</button>
+          </div>
+        </div>
 
-        <aside id="detailPanel" class="panel detail-panel" aria-live="polite">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Info</p>
-              <h2 id="detailTitle">Select a recipe</h2>
+        <!-- Foods tab -->
+        <div id="tabFoods" class="tab-content" role="tabpanel">
+          <div class="foods-layout">
+            <div class="plate-col">
+              <div id="platePieContainer" class="plate-pie-wrap"></div>
+              <div id="platePieLegend" class="pie-legend plate-legend"></div>
             </div>
-            <button id="detailClose" class="detail-close hidden" type="button" aria-label="Close recipe details">
-              ×
-            </button>
+            <aside id="plateInfoPanel" class="plate-info-panel">
+              <h3 id="plateInfoTitle" class="plate-info-title">Select a slice</h3>
+              <div id="plateInfoContent" class="plate-info-content"></div>
+            </aside>
           </div>
-          <div id="detailContent" class="detail-content">
-            <p>Choose a recipe card to inspect the currently visible public metrics and tagged ingredients.</p>
+        </div>
+
+        <!-- Nutrients tab -->
+        <div id="tabNutrients" class="tab-content hidden" role="tabpanel">
+          <div class="nutrients-layout">
+            <div id="nutrientPieContainer" class="pie-container nutrient-pie"></div>
+            <div id="nutrientPieLegend" class="pie-legend"></div>
           </div>
-        </aside>
+        </div>
+
+        <!-- Environmental tab -->
+        <div id="tabEnv" class="tab-content hidden" role="tabpanel">
+          <div id="envCircles4" class="env-circles-4"></div>
+        </div>
+        <div class="meal-plate-footer">
+          <button class="button button-danger meal-clear-btn" type="button" id="clearPlateBtn">Clear Plate</button>
+        </div>
+      </section>
+
+      <!-- Catalog — full width -->
+      <section id="catalogSection" class="panel panel-catalog catalog-fullwidth">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Catalog</p>
+            <h2>Dining Hall Recipes</h2>
+          </div>
+          <p class="panel-meta">Open to all visitors</p>
+        </div>
+        <div class="catalog-search-wrap">
+          <input id="catalogRecipeSearch" class="catalog-search-input" type="search" placeholder="Search recipes by name or ingredient…" autocomplete="off">
+        </div>
+        <div id="resultsGrid" class="results-grid results-grid-wide"></div>
+        <p id="emptyState" class="empty-state hidden">No recipes matched that search.</p>
       </section>
     </main>
   </div>
 
-  <button id="detailBackdrop" class="detail-backdrop hidden" type="button" aria-label="Close recipe details"></button>
+  <!-- Floating catalog detail overlay -->
+  <div id="catalogFloatOverlay" class="catalog-float-overlay hidden" aria-modal="true">
+    <div id="catalogFloatPanel" class="catalog-float-panel">
+      <div id="catalogFloatContent"></div>
+    </div>
+  </div>
 
   <script type="module" src="/app.js"></script>
 </body>

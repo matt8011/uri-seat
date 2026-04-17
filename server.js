@@ -1237,6 +1237,70 @@ async function clearDatabase() {
   };
 }
 
+async function clearIngredients() {
+  await runSql(`
+    DELETE FROM food_entries;
+    DELETE FROM sqlite_sequence WHERE name='food_entries';
+  `);
+  await repopulateRecipes();
+  return { foodEntryCount: 0, recipeCount: 0 };
+}
+
+async function clearRecipesOnly() {
+  await runSql(`
+    DELETE FROM recipes;
+    DELETE FROM sqlite_sequence WHERE name='recipes';
+  `);
+  return { recipeCount: 0 };
+}
+
+async function cleanRecipeTagFromIngredients(recipeName) {
+  const rows = await allSql('SELECT id, tagged_recipes FROM food_entries;');
+  const lower = recipeName.toLowerCase();
+  for (const row of rows) {
+    const tags = row.tagged_recipes ? JSON.parse(row.tagged_recipes) : [];
+    const filtered = tags.filter((t) => t.toLowerCase() !== lower);
+    if (filtered.length !== tags.length) {
+      await runSql(
+        `UPDATE food_entries SET tagged_recipes = ${sqlValue(JSON.stringify(filtered))} WHERE id = ${sqlValue(Number(row.id))};`
+      );
+    }
+  }
+}
+
+async function exportIngredientsCsv() {
+  const EXPORT_COLUMNS = [
+    'name', 'tagged_recipes', 'protein', 'fiber', 'vitamin_a', 'vitamin_c',
+    'vitamin_e', 'calcium', 'iron', 'magnesium', 'potassium', 'saturated_fat',
+    'added_sugar', 'sodium', 'freshwater_withdrawals', 'stress_weighted_water_use',
+    'acidifying_emissions', 'eutrophying_emissions', 'ghg_emissions', 'land_use'
+  ];
+
+  const rows = await allSql('SELECT * FROM food_entries ORDER BY name COLLATE NOCASE ASC, id ASC;');
+  const items = rows.map(deserializeRow);
+
+  function csvCell(value) {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  const header = EXPORT_COLUMNS.join(',');
+  const dataRows = items.map((item) =>
+    EXPORT_COLUMNS.map((col) => {
+      if (col === 'tagged_recipes') {
+        return csvCell((item.tagged_recipes || []).join(', '));
+      }
+      return csvCell(item[col]);
+    }).join(',')
+  );
+
+  return [header, ...dataRows].join('\n');
+}
+
 async function cleanupExpiredSessions() {
   await runSql(`DELETE FROM sessions WHERE expires_at <= ${sqlValue(new Date().toISOString())};`);
 }
@@ -1656,7 +1720,7 @@ async function handleCsvImport(req, res) {
         await runSql(foodUpdateSql(existingItem.id, recalculated, now));
         updated += 1;
       } else {
-        // Insert new row — missing columns stay null
+        // Insert new row - missing columns stay null
         const item = {
           name,
           tagged_recipes: mapped.tagged_recipes !== null
@@ -1908,6 +1972,73 @@ async function handleApi(req, res, pathname, searchParams) {
     await runSql(`DELETE FROM food_entries WHERE id = ${sqlValue(id)};`);
     await repopulateRecipes();
     return sendJson(res, 200, { success: true });
+  }
+
+  if (pathname === '/api/admin/clear-ingredients' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const result = await clearIngredients();
+      return sendJson(res, 200, result);
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Unable to clear ingredients.' });
+    }
+  }
+
+  if (pathname === '/api/admin/clear-recipes' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const result = await clearRecipesOnly();
+      return sendJson(res, 200, result);
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Unable to clear recipes.' });
+    }
+  }
+
+  if (pathname === '/api/admin/export' && method === 'GET') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const csvText = await exportIngredientsCsv();
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = `ingredients-export-${date}.csv`;
+      const buf = Buffer.from(csvText, 'utf-8');
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': buf.length,
+        'Cache-Control': 'no-store'
+      });
+      res.end(buf);
+      return;
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Export failed.' });
+    }
+  }
+
+  if (pathname.startsWith('/api/recipes/') && method === 'DELETE') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    const id = Number(pathname.split('/').pop());
+    if (!Number.isInteger(id)) {
+      return sendJson(res, 400, { error: 'Invalid recipe id.' });
+    }
+    const recipeRow = await getSql(`SELECT * FROM recipes WHERE id = ${sqlValue(id)} LIMIT 1;`);
+    if (!recipeRow) {
+      return sendJson(res, 404, { error: 'Recipe not found.' });
+    }
+    const recipeName = recipeRow.name;
+    await runSql(`DELETE FROM recipes WHERE id = ${sqlValue(id)};`);
+    await cleanRecipeTagFromIngredients(recipeName);
+    return sendJson(res, 200, { deleted: true });
   }
 
   return sendJson(res, 404, { error: 'Not found.' });

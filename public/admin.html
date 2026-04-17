@@ -162,6 +162,7 @@
               <span>Replace all existing food entries before import</span>
             </label>
             <button id="importButton" class="button button-secondary" type="button">Import CSV</button>
+            <button id="exportIngredientsButton" class="button button-ghost" type="button">Export Ingredients CSV</button>
           </div>
           <div id="importMessage" class="admin-message"></div>
           <p class="hint-copy">
@@ -189,37 +190,27 @@
           </p>
         </section>
 
-        <section class="panel import-panel">
-          <div class="panel-header">
-            <div>
-              <p class="panel-kicker">Danger Zone</p>
-              <h2>Clear Database</h2>
-            </div>
-            <p class="panel-meta">Deletes ingredients and recipes</p>
-          </div>
-          <div class="import-controls">
-            <button id="clearDatabaseButton" class="button button-danger" type="button">Clear Database</button>
-          </div>
-          <div id="clearDatabaseMessage" class="admin-message"></div>
-          <p class="hint-copy">
-            This removes all ingredient entries and all generated recipes from the local database.
-          </p>
-        </section>
-
         <section class="panel admin-panel">
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Database</p>
-              <h2>Current ingredients</h2>
+              <h2>Current ingredients (<span id="ingredientCount">0</span>)</h2>
             </div>
             <p id="adminTableSummary" class="panel-meta">Loading entries...</p>
+          </div>
+          <div class="table-controls">
+            <input type="search" id="ingredientSearch" class="table-search" placeholder="Search ingredients...">
+            <label class="checkbox-row">
+              <input id="incompleteFilter" type="checkbox">
+              <span>Show incomplete only</span>
+            </label>
           </div>
           <div class="admin-table-wrap">
             <table class="admin-table">
               <thead>
                 <tr>
                   <th>Food item</th>
-                  <th>GHG Emissions</th>
+                  <th>SI Score</th>
                   <th>Tagged recipes</th>
                   <th>Updated</th>
                   <th>Actions</th>
@@ -228,15 +219,23 @@
               <tbody id="adminTableBody"></tbody>
             </table>
           </div>
+          <div class="pagination-controls">
+            <button id="ingredientPrevBtn" class="button button-ghost button-sm" type="button" disabled>&#8592; Prev</button>
+            <span id="ingredientPageInfo" class="pagination-info">Page 1 of 1</span>
+            <button id="ingredientNextBtn" class="button button-ghost button-sm" type="button" disabled>Next &#8594;</button>
+          </div>
         </section>
 
         <section class="panel admin-panel">
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Recipes</p>
-              <h2>Current recipes</h2>
+              <h2>Current recipes (<span id="recipeCount">0</span>)</h2>
             </div>
-            <p class="panel-meta">Generated from ingredient tags</p>
+            <p id="recipeRangeSummary" class="panel-meta">Generated from ingredient tags</p>
+          </div>
+          <div class="table-controls">
+            <input type="search" id="recipeSearch" class="table-search" placeholder="Search recipes...">
           </div>
           <div class="admin-table-wrap">
             <table class="admin-table">
@@ -245,11 +244,37 @@
                   <th>Recipe</th>
                   <th>Sustainability Index</th>
                   <th>Updated</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody id="recipeTableBody"></tbody>
             </table>
           </div>
+          <div class="pagination-controls">
+            <button id="recipePrevBtn" class="button button-ghost button-sm" type="button" disabled>&#8592; Prev</button>
+            <span id="recipePageInfo" class="pagination-info">Page 1 of 1</span>
+            <button id="recipeNextBtn" class="button button-ghost button-sm" type="button" disabled>Next &#8594;</button>
+          </div>
+        </section>
+
+        <section class="panel import-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Danger Zone</p>
+              <h2>Clear Data</h2>
+            </div>
+            <p class="panel-meta">Irreversible deletions</p>
+          </div>
+          <div class="import-controls">
+            <button id="clearIngredientsButton" class="button button-danger" type="button">Clear Ingredients</button>
+            <button id="clearRecipesButton" class="button button-danger" type="button">Clear Recipes</button>
+          </div>
+          <div id="clearIngredientsMessage" class="admin-message"></div>
+          <div id="clearRecipesMessage" class="admin-message"></div>
+          <p class="hint-copy">
+            <strong>Clear Ingredients</strong> removes all ingredient entries and regenerated recipes.<br>
+            <strong>Clear Recipes</strong> removes only the recipes table.
+          </p>
         </section>
       </section>
     </main>
@@ -258,13 +283,13 @@
   <dialog id="columnMappingDialog" class="mapping-dialog">
     <div class="mapping-dialog-inner">
       <div class="mapping-dialog-header">
-        <h3>Unmatched Columns</h3>
-        <p>The following CSV columns couldn't be automatically matched. Map each one to a database column or ignore it.</p>
+        <h3>Map CSV Columns</h3>
+        <p>Some columns could not be automatically matched. Choose a database field for each, or ignore it.</p>
       </div>
       <div id="columnMappingList" class="mapping-list"></div>
       <div class="mapping-dialog-actions">
         <button id="columnMappingCancel" class="button button-ghost" type="button">Cancel</button>
-        <button id="columnMappingConfirm" class="button button-primary" type="button">Continue Import</button>
+        <button id="columnMappingConfirm" class="button button-primary" type="button">Confirm mapping</button>
       </div>
     </div>
   </dialog>
