@@ -140,6 +140,7 @@ const elements = {
   authStatus: document.getElementById('authStatus'),
   authHint: document.getElementById('authHint'),
   adminWorkspace: document.getElementById('adminWorkspace'),
+  dangerZonePanel: document.getElementById('dangerZonePanel'),
   entryForm: document.getElementById('entryForm'),
   entryId: document.getElementById('entryId'),
   cancelEdit: document.getElementById('cancelEdit'),
@@ -298,14 +299,16 @@ async function loadRecipes() {
 function renderAuth() {
   const user = state.session;
   const isAdmin = Boolean(user?.isAdmin);
+  const isSuperAdmin = Boolean(user?.isSuperAdmin);
 
   elements.adminNavLabel.textContent = user ? 'Admin' : 'Login';
   elements.signOutButton.classList.toggle('hidden', !user);
   elements.adminWorkspace.classList.toggle('hidden', !isAdmin);
+  elements.dangerZonePanel.classList.toggle('hidden', !isSuperAdmin);
 
   if (!state.config?.googleAuthEnabled) {
     elements.authStatus.textContent = 'Google Auth is not configured yet.';
-    elements.authHint.textContent = 'Set GOOGLE_CLIENT_ID, SESSION_SECRET, and ADMIN_EMAILS on the server to enable admin access.';
+    elements.authHint.textContent = 'Set GOOGLE_CLIENT_ID, SESSION_SECRET, ADMIN_EMAILS, and SUPERADMIN_EMAILS on the server to enable admin access.';
     elements.googleMount.classList.add('hidden');
     elements.googleMount.classList.remove('is-ready');
     return;
@@ -314,6 +317,9 @@ function renderAuth() {
   if (!user) {
     elements.authStatus.textContent = 'Authorized users only. No session active.';
     elements.authHint.textContent = 'Sign in to manage the SEAT database.';
+  } else if (isSuperAdmin) {
+    elements.authStatus.textContent = `Signed in as ${user.name}`;
+    elements.authHint.textContent = `${user.email} has super admin access.`;
   } else if (isAdmin) {
     elements.authStatus.textContent = `Signed in as ${user.name}`;
     elements.authHint.textContent = `${user.email} has admin access.`;
@@ -386,6 +392,9 @@ function renderAdminTable() {
 
   for (const item of pageItems) {
     const isMissing = REQUIRED_FIELDS.some((f) => item[f] === null || item[f] === undefined);
+    const deleteButton = state.session?.isSuperAdmin
+      ? `<button class="button button-danger" type="button" data-action="delete" data-id="${item.id}">Delete</button>`
+      : '';
     const row = document.createElement('tr');
     if (isMissing) row.classList.add('row-incomplete');
     row.innerHTML = `
@@ -396,7 +405,7 @@ function renderAdminTable() {
       <td data-label="Actions">
         <div class="table-actions">
           <button class="button button-secondary" type="button" data-action="edit" data-id="${item.id}">Edit</button>
-          <button class="button button-danger" type="button" data-action="delete" data-id="${item.id}">Delete</button>
+          ${deleteButton}
         </div>
       </td>
     `;
@@ -446,6 +455,9 @@ function renderRecipeTable() {
   }
 
   for (const recipe of pageRecipes) {
+    const deleteButton = state.session?.isSuperAdmin
+      ? `<button class="button button-danger" type="button" data-action="delete-recipe" data-id="${recipe.id}" data-name="${escapeHtml(recipe.name)}">Delete</button>`
+      : '';
     const row = document.createElement('tr');
     row.innerHTML = `
       <td data-label="Recipe">${escapeHtml(recipe.name)}</td>
@@ -453,7 +465,7 @@ function renderRecipeTable() {
       <td data-label="Updated">${escapeHtml(formatDateTime(recipe.updated_at))}</td>
       <td data-label="Actions">
         <div class="table-actions">
-          <button class="button button-danger" type="button" data-action="delete-recipe" data-id="${recipe.id}" data-name="${escapeHtml(recipe.name)}">Delete</button>
+          ${deleteButton}
         </div>
       </td>
     `;
@@ -671,6 +683,10 @@ elements.adminTableBody.addEventListener('click', async (event) => {
   }
 
   if (button.dataset.action === 'delete') {
+    if (!state.session?.isSuperAdmin) {
+      setAdminMessage('Super admin access required to delete ingredients.', true);
+      return;
+    }
     const confirmed = window.confirm(`Delete ${item.name}?`);
     if (!confirmed) {
       return;
@@ -691,6 +707,10 @@ elements.adminTableBody.addEventListener('click', async (event) => {
 elements.recipeTableBody.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action="delete-recipe"]');
   if (!button) return;
+  if (!state.session?.isSuperAdmin) {
+    setRecipeMessage('Super admin access required to delete recipes.', true);
+    return;
+  }
 
   const id = Number(button.dataset.id);
   const name = button.dataset.name;
@@ -873,6 +893,10 @@ elements.repopulateRecipesButton.addEventListener('click', async () => {
 });
 
 elements.clearIngredientsButton.addEventListener('click', async () => {
+  if (!state.session?.isSuperAdmin) {
+    setClearIngredientsMessage('Super admin access required to clear ingredients.', true);
+    return;
+  }
   const firstConfirmation = window.confirm(
     'Are you sure you want to clear all ingredient AND recipe data?'
   );
@@ -903,6 +927,10 @@ elements.clearIngredientsButton.addEventListener('click', async () => {
 });
 
 elements.clearRecipesButton.addEventListener('click', async () => {
+  if (!state.session?.isSuperAdmin) {
+    setClearRecipesMessage('Super admin access required to clear recipes.', true);
+    return;
+  }
   const firstConfirmation = window.confirm(
     'Are you sure you want to clear all recipe data only?'
   );

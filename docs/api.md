@@ -18,8 +18,15 @@ Admin-only endpoints:
 
 - `POST /api/items`
 - `PUT /api/items/:id`
-- `DELETE /api/items/:id`
 - `POST /api/items/import`
+
+Super-admin-only endpoints:
+
+- `DELETE /api/items/:id`
+- `DELETE /api/recipes/:id`
+- `POST /api/admin/clear-database`
+- `POST /api/admin/clear-ingredients`
+- `POST /api/admin/clear-recipes`
 
 ## Endpoints
 
@@ -33,7 +40,8 @@ Example response:
 {
   "googleClientId": "...",
   "googleAuthEnabled": true,
-  "adminEmailsConfigured": true
+  "adminEmailsConfigured": true,
+  "superAdminEmailsConfigured": true
 }
 ```
 
@@ -50,7 +58,8 @@ Example response:
     "email": "admin@example.edu",
     "name": "Admin User",
     "picture": "https://...",
-    "isAdmin": true
+    "isAdmin": true,
+    "isSuperAdmin": true
   }
 }
 ```
