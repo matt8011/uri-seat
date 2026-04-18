@@ -176,6 +176,10 @@ body::before {
   color: var(--muted);
 }
 
+.catalog-summary {
+  margin: -4px 0 18px;
+}
+
 .hero h1 {
   margin: 8px 0 16px;
   font-size: clamp(2.4rem, 5vw, 4.8rem);
@@ -194,13 +198,6 @@ body::before {
   line-height: 1.6;
 }
 
-.searchbar {
-  display: flex;
-  gap: 12px;
-  margin-top: 28px;
-}
-
-.searchbar input,
 .entry-form input,
 .entry-form select,
 .file-picker input {
@@ -214,7 +211,6 @@ body::before {
   transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
-.searchbar input:focus,
 .entry-form input:focus,
 .entry-form select:focus,
 .file-picker input:focus {
@@ -1228,7 +1224,6 @@ input[readonly] {
   }
 
   .topbar-actions,
-  .searchbar,
   .form-actions,
   .auth-actions,
   .table-actions,
@@ -1365,19 +1360,12 @@ input[readonly] {
     line-height: 1.45;
   }
 
-  .searchbar {
-    gap: 10px;
-    margin-top: 12px;
-  }
-
-  .searchbar input,
-  .searchbar .button {
-    padding-top: 13px;
-    padding-bottom: 13px;
-  }
-
   .search-summary {
     margin: 2px 0 0;
+  }
+
+  .catalog-summary {
+    margin: 0 0 16px;
   }
 
   .hero-panel {

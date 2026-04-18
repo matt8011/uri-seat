@@ -115,8 +115,6 @@ const envCircles4El    = document.getElementById('envCircles4');
 const tabFoodsEl       = document.getElementById('tabFoods');
 const tabNutrientsEl   = document.getElementById('tabNutrients');
 const tabEnvEl         = document.getElementById('tabEnv');
-const searchFormEl     = document.getElementById('searchForm');
-const searchInputEl    = document.getElementById('searchInput');
 const searchSummaryEl  = document.getElementById('searchSummary');
 const resultsGridEl    = document.getElementById('resultsGrid');
 const emptyStateEl     = document.getElementById('emptyState');
@@ -1634,13 +1632,6 @@ document.addEventListener('click', (event) => {
     renderPlatePie();
     renderPlateInfoPanel();
   }
-});
-
-// Search form
-searchFormEl.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  await loadRecipes(searchInputEl.value);
-  catalogSectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 // Catalog recipe search (live filter)

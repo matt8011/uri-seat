@@ -34,12 +34,6 @@
           <p class="hero-text">
             Search URI Dining Hall recipes and explore the ingredient mix behind each meal.
           </p>
-          <form id="searchForm" class="searchbar">
-            <label class="sr-only" for="searchInput">Search recipe or ingredient</label>
-            <input id="searchInput" name="q" type="search" placeholder="Search cheeseburger, salad, apple..." autocomplete="off">
-            <button class="button button-primary" type="submit">Search</button>
-          </form>
-          <p id="searchSummary" class="search-summary">Loading catalog...</p>
         </div>
         <aside class="hero-panel">
           <div class="hero-metric">
@@ -115,6 +109,7 @@
         <div class="catalog-search-wrap">
           <input id="catalogRecipeSearch" class="catalog-search-input" type="search" placeholder="Search recipes by name or ingredient…" autocomplete="off">
         </div>
+        <p id="searchSummary" class="search-summary catalog-summary">Loading catalog...</p>
         <div id="resultsGrid" class="results-grid results-grid-wide"></div>
         <p id="emptyState" class="empty-state hidden">No recipes matched that search.</p>
       </section>
