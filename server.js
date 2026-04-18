@@ -11,12 +11,8 @@ const PORT = Number(process.env.PORT || 3000);
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || '';
-const ADMIN_EMAILS = new Set(
-  (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean)
-);
+const ADMIN_EMAILS = parseEmailList(process.env.ADMIN_EMAILS);
+const SUPERADMIN_EMAILS = parseEmailList(process.env.SUPERADMIN_EMAILS);
 
 const DEFAULT_DB_PATH = path.join(__dirname, 'data.sqlite');
 const DB_PATH = path.resolve(process.env.DB_PATH || DEFAULT_DB_PATH);
@@ -98,6 +94,28 @@ const ENVIRONMENTAL_NUMERIC_FIELDS = [
   ['ghg_emissions', '2-5 GHG Emissions'],
   ['land_use', '2-6 Land Use']
 ];
+
+function parseEmailList(value) {
+  return new Set(
+    String(value || '')
+      .split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isAdminEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  return ADMIN_EMAILS.has(normalizedEmail) || SUPERADMIN_EMAILS.has(normalizedEmail);
+}
+
+function isSuperAdminEmail(email) {
+  return SUPERADMIN_EMAILS.has(normalizeEmail(email));
+}
 
 function sqlEscape(value) {
   return String(value).replaceAll("'", "''");
@@ -437,6 +455,9 @@ function validateConfiguration() {
   if (ADMIN_EMAILS.size === 0) {
     problems.push('ADMIN_EMAILS must include at least one admin email address.');
   }
+  if (SUPERADMIN_EMAILS.size === 0) {
+    problems.push('SUPERADMIN_EMAILS must include at least one super admin email address.');
+  }
   if (!Number.isFinite(PORT) || PORT <= 0) {
     problems.push('PORT must be a positive number.');
   }
@@ -459,7 +480,8 @@ function serializeUser(user) {
     email: user.email,
     name: user.name,
     picture: user.picture,
-    isAdmin: ADMIN_EMAILS.has(String(user.email || '').toLowerCase())
+    isAdmin: isAdminEmail(user.email),
+    isSuperAdmin: isSuperAdminEmail(user.email)
   };
 }
 
@@ -1339,6 +1361,18 @@ async function requireAdmin(req, res) {
   return user;
 }
 
+async function requireSuperAdmin(req, res) {
+  const user = await requireAdmin(req, res);
+  if (!user) {
+    return null;
+  }
+  if (!user.isSuperAdmin) {
+    sendJson(res, 403, { error: 'Super admin access required.' });
+    return null;
+  }
+  return user;
+}
+
 async function verifyGoogleToken(credential) {
   if (!GOOGLE_CLIENT_ID) {
     throw new Error('GOOGLE_CLIENT_ID is not configured on the server.');
@@ -1776,7 +1810,8 @@ async function handleApi(req, res, pathname, searchParams) {
     return sendJson(res, 200, {
       googleClientId: GOOGLE_CLIENT_ID || null,
       googleAuthEnabled: Boolean(GOOGLE_CLIENT_ID),
-      adminEmailsConfigured: ADMIN_EMAILS.size > 0
+      adminEmailsConfigured: ADMIN_EMAILS.size > 0,
+      superAdminEmailsConfigured: SUPERADMIN_EMAILS.size > 0
     });
   }
 
@@ -1872,7 +1907,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname === '/api/admin/clear-database' && method === 'POST') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
 
@@ -1956,7 +1991,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname.startsWith('/api/items/') && method === 'DELETE') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
 
@@ -1975,7 +2010,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname === '/api/admin/clear-ingredients' && method === 'POST') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
     try {
@@ -1988,7 +2023,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname === '/api/admin/clear-recipes' && method === 'POST') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
     try {
@@ -2024,7 +2059,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname.startsWith('/api/recipes/') && method === 'DELETE') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
     const id = Number(pathname.split('/').pop());

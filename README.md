@@ -13,7 +13,7 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 ## Run
 
 1. Copy `.env.example` to `.env` if you do not already have one
-2. Set `GOOGLE_CLIENT_ID`, `SESSION_SECRET`, and `ADMIN_EMAILS` in `.env` or your shell environment
+2. Set `GOOGLE_CLIENT_ID`, `SESSION_SECRET`, `ADMIN_EMAILS`, and `SUPERADMIN_EMAILS` in `.env` or your shell environment
 3. Execute the server with `./start.sh`
 4. Open `http://localhost:3000` for the public site
 5. Open `http://localhost:3000/admin` for the admin workspace
@@ -22,7 +22,10 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
 
 - `GOOGLE_CLIENT_ID`: OAuth client ID used by Google Identity Services on the frontend and verified by the server
 - `SESSION_SECRET`: Secret used to sign the session cookie
-- `ADMIN_EMAILS`: Comma-separated list of Google account emails allowed to create, update, delete, and import entries
+- `ADMIN_EMAILS`: Comma-separated list of Google account emails allowed to create, update, import, and otherwise manage entries
+- `SUPERADMIN_EMAILS`: Comma-separated list of Google account emails allowed to see destructive delete controls and perform delete/clear actions
+
+Super admins also inherit normal admin access, so any email in `SUPERADMIN_EMAILS` can still use the rest of the admin workspace.
 - `NODE_ENV`: Set to `production` in deployment so cookies are marked `Secure`
 - `PORT`: Optional HTTP port. Defaults to `3000`
 - `DB_PATH`: Optional path to the SQLite database file. Useful for persistent volumes in production.
@@ -46,6 +49,7 @@ A lightweight Node + SQLite web app for searching and administering URI dining h
    - `GOOGLE_CLIENT_ID`
    - `SESSION_SECRET`
    - `ADMIN_EMAILS`
+   - `SUPERADMIN_EMAILS`
    - `NODE_ENV=production`
    - `DB_PATH=/data/data.sqlite`
 5. Deploy the service
