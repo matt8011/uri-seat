@@ -176,6 +176,10 @@ body::before {
   color: var(--muted);
 }
 
+.catalog-summary {
+  margin: -4px 0 18px;
+}
+
 .hero h1 {
   margin: 8px 0 16px;
   font-size: clamp(2.4rem, 5vw, 4.8rem);
@@ -194,13 +198,67 @@ body::before {
   line-height: 1.6;
 }
 
-.searchbar {
-  display: flex;
-  gap: 12px;
-  margin-top: 28px;
+.hero-steps {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(0, 33, 71, 0.08);
 }
 
-.searchbar input,
+.hero-steps-title {
+  margin: 0 0 14px;
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hero-step-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hero-step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 16px 18px;
+  border: 1px solid rgba(0, 33, 71, 0.08);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(246, 249, 252, 0.84));
+  box-shadow: 0 12px 28px rgba(15, 38, 62, 0.06);
+}
+
+.hero-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(0, 33, 71, 0.96), rgba(62, 100, 145, 0.94));
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.96rem;
+  box-shadow: inset 0 1px 0 rgba(255, 212, 83, 0.22);
+}
+
+.hero-step strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.hero-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 .entry-form input,
 .entry-form select,
 .file-picker input {
@@ -214,7 +272,6 @@ body::before {
   transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
-.searchbar input:focus,
 .entry-form input:focus,
 .entry-form select:focus,
 .file-picker input:focus {
@@ -1228,7 +1285,6 @@ input[readonly] {
   }
 
   .topbar-actions,
-  .searchbar,
   .form-actions,
   .auth-actions,
   .table-actions,
@@ -1365,19 +1421,42 @@ input[readonly] {
     line-height: 1.45;
   }
 
-  .searchbar {
-    gap: 10px;
-    margin-top: 12px;
+  .hero-steps {
+    margin-top: 14px;
+    padding-top: 14px;
   }
 
-  .searchbar input,
-  .searchbar .button {
-    padding-top: 13px;
-    padding-bottom: 13px;
+  .hero-steps-title {
+    margin-bottom: 10px;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+  }
+
+  .hero-step-list {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .hero-step {
+    padding: 14px 15px;
+    border-radius: 18px;
+  }
+
+  .hero-step strong {
+    font-size: 0.95rem;
+  }
+
+  .hero-step p {
+    font-size: 0.88rem;
+    line-height: 1.4;
   }
 
   .search-summary {
     margin: 2px 0 0;
+  }
+
+  .catalog-summary {
+    margin: 0 0 16px;
   }
 
   .hero-panel {
