@@ -254,7 +254,26 @@ function getMealItemById(itemId) {
   return state.mealItems.find((item) => item.id === itemId) || null;
 }
 
+function isMealItemCustomized(mealItem) {
+  if ((mealItem.addedIngredients || []).length > 0) {
+    return true;
+  }
+
+  for (const ing of mealItem.ingredients || []) {
+    if (getIngredientCount(mealItem.id, normalizeIngredientKey(ing.name)) !== 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function getMealItemScore(mealItem) {
+  const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
+  if (recipe && !isMealItemCustomized(mealItem)) {
+    return recipe.sustainability_index ?? null;
+  }
+
   const allIngs = [
     ...mealItem.ingredients,
     ...(mealItem.addedIngredients || []),
@@ -277,6 +296,9 @@ function getMealItemScore(mealItem) {
 function getMealItemNutritionScore(mealItem) {
   const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
   if (!recipe) return null;
+  if (!isMealItemCustomized(mealItem)) {
+    return recipe.nutrition_composite_score ?? null;
+  }
   const rNut = recipe.nutrition_composite_score;
   const rEnv = recipe.environmental_composite_score;
   if (rNut == null) return null;
@@ -291,6 +313,9 @@ function getMealItemNutritionScore(mealItem) {
 function getMealItemEnvScore(mealItem) {
   const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
   if (!recipe) return null;
+  if (!isMealItemCustomized(mealItem)) {
+    return recipe.environmental_composite_score ?? null;
+  }
   const rNut = recipe.nutrition_composite_score;
   const rEnv = recipe.environmental_composite_score;
   if (rEnv == null) return null;
@@ -1177,7 +1202,7 @@ function renderCatalogDetail() {
       <div class="catalog-detail-inner">
         <p class="detail-copy">Last updated ${escapeHtml(formatDateTime(ingredient.updated_at))}.</p>
         ${renderScoreProminentGrid(ingredient)}
-        <p class="panel-kicker">Nutrition</p>
+        <p class="panel-kicker">Nutrition (per 100g)</p>
         ${renderNutrientSubgrid(ingredient)}
         <p class="panel-kicker">Environmental</p>
         ${renderEnvSubgrid(ingredient)}
