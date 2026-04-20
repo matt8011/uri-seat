@@ -18,6 +18,11 @@ const DB_IMPORT_COLUMNS = [
   'added_sugar', 'sodium', 'freshwater_withdrawals', 'stress_weighted_water_use',
   'acidifying_emissions', 'eutrophying_emissions', 'ghg_emissions', 'land_use'
 ];
+const RECIPE_IMPORT_COLUMNS = [
+  'recipe_name',
+  'ingredient_name',
+  'grams_in_portion'
+];
 
 const REQUIRED_FIELDS = [
   'protein', 'fiber', 'vitamin_a', 'vitamin_c', 'vitamin_e',
@@ -158,6 +163,10 @@ const elements = {
   importButton: document.getElementById('importButton'),
   exportIngredientsButton: document.getElementById('exportIngredientsButton'),
   importMessage: document.getElementById('importMessage'),
+  recipeCsvFile: document.getElementById('recipeCsvFile'),
+  replaceRecipeExisting: document.getElementById('replaceRecipeExisting'),
+  recipeImportButton: document.getElementById('recipeImportButton'),
+  recipeImportMessage: document.getElementById('recipeImportMessage'),
   repopulateRecipesButton: document.getElementById('repopulateRecipesButton'),
   recipeMessage: document.getElementById('recipeMessage'),
   recipeTableBody: document.getElementById('recipeTableBody'),
@@ -255,6 +264,11 @@ function setAdminMessage(message, isError = false) {
 function setImportMessage(message, isError = false) {
   elements.importMessage.textContent = message;
   elements.importMessage.style.color = isError ? '#a93d30' : '';
+}
+
+function setRecipeImportMessage(message, isError = false) {
+  elements.recipeImportMessage.textContent = message;
+  elements.recipeImportMessage.style.color = isError ? '#a93d30' : '';
 }
 
 function setRecipeMessage(message, isError = false) {
@@ -654,6 +668,7 @@ elements.entryForm.addEventListener('submit', async (event) => {
     });
     clearForm();
     await loadItems();
+    await loadRecipes();
     setAdminMessage(id ? 'Entry updated.' : 'Entry created.');
   } catch (error) {
     setAdminMessage(error.message, true);
@@ -696,6 +711,7 @@ elements.adminTableBody.addEventListener('click', async (event) => {
       setAdminMessage(`Deleting ${item.name}...`);
       await api(`/api/items/${id}`, { method: 'DELETE' });
       await loadItems();
+      await loadRecipes();
       clearForm();
       setAdminMessage(`${item.name} deleted.`);
     } catch (error) {
@@ -838,6 +854,7 @@ elements.importButton.addEventListener('click', async () => {
     });
 
     await loadItems();
+    await loadRecipes();
     const parts = [];
     if (result.inserted > 0) parts.push(`${result.inserted} inserted`);
     if (result.updated > 0) parts.push(`${result.updated} updated`);
@@ -846,6 +863,53 @@ elements.importButton.addEventListener('click', async () => {
     elements.csvFile.value = '';
   } catch (error) {
     setImportMessage(error.message, true);
+  }
+});
+
+elements.recipeImportButton.addEventListener('click', async () => {
+  const file = elements.recipeCsvFile.files?.[0];
+  if (!file) {
+    setRecipeImportMessage('Choose a recipe CSV file first.', true);
+    return;
+  }
+
+  try {
+    setRecipeImportMessage('Reading recipe CSV...');
+    const csvText = await file.text();
+    const csvHeaders = parseCsvFirstRow(csvText).map(normalizeHeader);
+    const missingHeaders = RECIPE_IMPORT_COLUMNS.filter((header) => !csvHeaders.includes(header));
+
+    if (missingHeaders.length > 0) {
+      setRecipeImportMessage(
+        `Missing required headers: ${missingHeaders.join(', ')}.`,
+        true
+      );
+      return;
+    }
+
+    setRecipeImportMessage('Importing recipe portions...');
+    const result = await api('/api/recipes/import', {
+      method: 'POST',
+      body: JSON.stringify({
+        csvText,
+        replaceExisting: elements.replaceRecipeExisting.checked
+      })
+    });
+
+    await loadRecipes();
+    const parts = [];
+    if (result.inserted > 0) parts.push(`${result.inserted} inserted`);
+    if (result.updated > 0) parts.push(`${result.updated} updated`);
+    if (result.skipped > 0) parts.push(`${result.skipped} skipped`);
+    const suffix = result.mode === 'portion-sized'
+      ? ` Built ${result.recipeCount} weighted recipe${result.recipeCount === 1 ? '' : 's'}.`
+      : '';
+    setRecipeImportMessage(
+      `${parts.length ? parts.join(', ') : 'Nothing to import.'}${suffix}`
+    );
+    elements.recipeCsvFile.value = '';
+  } catch (error) {
+    setRecipeImportMessage(error.message, true);
   }
 });
 
@@ -873,7 +937,7 @@ elements.exportIngredientsButton.addEventListener('click', async () => {
 
 elements.repopulateRecipesButton.addEventListener('click', async () => {
   try {
-    setRecipeMessage('Rebuilding recipes from ingredient tags...');
+    setRecipeMessage('Rebuilding recipes...');
     elements.repopulateRecipesButton.disabled = true;
     const result = await api('/api/recipes/repopulate', {
       method: 'POST'
@@ -882,8 +946,11 @@ elements.repopulateRecipesButton.addEventListener('click', async () => {
     state.recipes = result.recipes;
     pagination.recipePage = 1;
     renderRecipeTable();
+    const modeSummary = result.mode === 'portion-sized'
+      ? `${result.recipeCount} weighted recipe${result.recipeCount === 1 ? '' : 's'} from ${result.recipeIngredientCount} recipe portion row${result.recipeIngredientCount === 1 ? '' : 's'}.`
+      : `${result.recipeCount} fallback recipe${result.recipeCount === 1 ? '' : 's'} from ${result.ingredientCount} ingredient entr${result.ingredientCount === 1 ? 'y' : 'ies'}.`;
     setRecipeMessage(
-      `Built ${result.recipeCount} recipe${result.recipeCount === 1 ? '' : 's'} from ${result.ingredientCount} ingredient entr${result.ingredientCount === 1 ? 'y' : 'ies'}.`
+      `Built ${modeSummary}`
     );
   } catch (error) {
     setRecipeMessage(error.message, true);

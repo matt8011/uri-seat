@@ -1177,7 +1177,7 @@ function renderCatalogDetail() {
       <div class="catalog-detail-inner">
         <p class="detail-copy">Last updated ${escapeHtml(formatDateTime(ingredient.updated_at))}.</p>
         ${renderScoreProminentGrid(ingredient)}
-        <p class="panel-kicker">Nutrition</p>
+        <p class="panel-kicker">Nutrition (per 100g)</p>
         ${renderNutrientSubgrid(ingredient)}
         <p class="panel-kicker">Environmental</p>
         ${renderEnvSubgrid(ingredient)}
