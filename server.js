@@ -626,6 +626,14 @@ function averageMetric(values) {
   return roundMetric(numbers.reduce((sum, value) => sum + value, 0) / numbers.length);
 }
 
+function weightedAverageMetric(entries) {
+  const valid = entries.filter(({ value, weight }) => isFiniteNumber(value) && isFiniteNumber(weight));
+  if (valid.length === 0) return null;
+  const totalWeight = valid.reduce((sum, { weight }) => sum + Number(weight), 0);
+  if (totalWeight === 0) return null;
+  return roundMetric(valid.reduce((sum, { value, weight }) => sum + Number(value) * Number(weight), 0) / totalWeight);
+}
+
 function sumMetric(values) {
   const numbers = values.filter(isFiniteNumber).map(Number);
   if (numbers.length === 0) {
