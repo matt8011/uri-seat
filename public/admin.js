@@ -174,7 +174,6 @@ const elements = {
   recipeRangeSummary: document.getElementById('recipeRangeSummary'),
   recipeCount: document.getElementById('recipeCount'),
   recipeSearch: document.getElementById('recipeSearch'),
-  exportRecipesButton: document.getElementById('exportRecipesButton'),
   recipePrevBtn: document.getElementById('recipePrevBtn'),
   recipeNextBtn: document.getElementById('recipeNextBtn'),
   recipePageInfo: document.getElementById('recipePageInfo'),
@@ -933,28 +932,6 @@ elements.exportIngredientsButton.addEventListener('click', async () => {
     URL.revokeObjectURL(url);
   } catch (error) {
     setImportMessage(error.message, true);
-  }
-});
-
-elements.exportRecipesButton.addEventListener('click', async () => {
-  try {
-    const response = await fetch('/api/admin/export-recipes', { credentials: 'same-origin' });
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: 'Recipe export failed.' }));
-      setRecipeMessage(err.error || 'Recipe export failed.', true);
-      return;
-    }
-    const csvText = await response.text();
-    const date = new Date().toISOString().slice(0, 10);
-    const blob = new Blob([csvText], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `recipes-export-${date}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    setRecipeMessage(error.message, true);
   }
 });
 

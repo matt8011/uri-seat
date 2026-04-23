@@ -1902,28 +1902,6 @@ async function exportIngredientsCsv() {
   return [header, ...dataRows].join('\n');
 }
 
-async function exportRecipesCsv() {
-  const recipes = await queryRecipes();
-
-  function csvCell(value) {
-    if (value === null || value === undefined) return '';
-    const str = String(value);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return '"' + str.replace(/"/g, '""') + '"';
-    }
-    return str;
-  }
-
-  const header = 'recipe_name,ingredient_name';
-  const dataRows = recipes.flatMap((recipe) =>
-    (recipe.tagged_ingredients || []).map((ingredient) =>
-      [csvCell(recipe.name), csvCell(ingredient.name)].join(',')
-    )
-  );
-
-  return [header, ...dataRows].join('\n');
-}
-
 async function cleanupExpiredSessions() {
   await runSql(`DELETE FROM sessions WHERE expires_at <= ${sqlValue(new Date().toISOString())};`);
 }
@@ -2660,29 +2638,6 @@ async function handleApi(req, res, pathname, searchParams) {
     } catch (error) {
       console.error(error);
       return sendJson(res, 500, { error: error.message || 'Export failed.' });
-    }
-  }
-
-  if (pathname === '/api/admin/export-recipes' && method === 'GET') {
-    if (!await requireAdmin(req, res)) {
-      return;
-    }
-    try {
-      const csvText = await exportRecipesCsv();
-      const date = new Date().toISOString().slice(0, 10);
-      const filename = `recipes-export-${date}.csv`;
-      const buf = Buffer.from(csvText, 'utf-8');
-      res.writeHead(200, {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': buf.length,
-        'Cache-Control': 'no-store'
-      });
-      res.end(buf);
-      return;
-    } catch (error) {
-      console.error(error);
-      return sendJson(res, 500, { error: error.message || 'Recipe export failed.' });
     }
   }
 
