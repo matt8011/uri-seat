@@ -1514,19 +1514,30 @@ function buildPortionSizedRecipeRows(items, recipeIngredients, timestamp) {
       const landUseScore = averageMetric(
         recipe.ingredients.map((entry) => entry.ingredient.land_use_score)
       );
-      const nutritionValues = withCalculatedNutrition(base);
+      const nutritionCompositeScore = (() => {
+        const entries = recipe.ingredients
+          .filter(({ grams_in_portion }) => isFiniteNumber(grams_in_portion));
+        const totalWeight = entries.reduce((sum, e) => sum + Number(e.grams_in_portion), 0);
+        if (totalWeight === 0) return null;
+        const weightedSum = entries.reduce((sum, e) => {
+          if (!isFiniteNumber(e.ingredient.nutrient_rich_food_index)) return sum;
+          const portionNrfi = Number(e.ingredient.nutrient_rich_food_index) * Number(e.grams_in_portion) / 100;
+          return sum + calculateNutritionCompositeScore(portionNrfi) * Number(e.grams_in_portion);
+        }, 0);
+        return roundMetric(weightedSum / totalWeight);
+      })();
 
       return {
         ...base,
-        nutrient_rich_food_index: nutritionValues.nutrient_rich_food_index,
-        nutrition_composite_score: nutritionValues.nutrition_composite_score,
+        nutrient_rich_food_index: null,
+        nutrition_composite_score: nutritionCompositeScore,
         environmental_composite_score: environmentalCompositeScore,
         water_use_score: waterUseScore,
         nitrogen_use_score: nitrogenUseScore,
         carbon_use_score: carbonUseScore,
         land_use_score: landUseScore,
         sustainability_index: calculateSustainabilityIndex(
-          nutritionValues.nutrition_composite_score,
+          nutritionCompositeScore,
           environmentalCompositeScore
         )
       };
@@ -1907,6 +1918,48 @@ async function exportIngredientsCsv() {
     }).join(',')
   );
 
+  return [header, ...dataRows].join('\n');
+}
+
+async function exportPortionsCsv() {
+  const rows = await allSql(
+    'SELECT recipe_name, ingredient_name, grams_in_portion FROM recipe_ingredients ORDER BY recipe_name COLLATE NOCASE ASC, ingredient_name COLLATE NOCASE ASC;'
+  );
+
+  function csvCell(value) {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  const header = 'recipe_name,ingredient_name,grams_in_portion';
+  const dataRows = rows.map((row) =>
+    [csvCell(row.recipe_name), csvCell(row.ingredient_name), csvCell(row.grams_in_portion)].join(',')
+  );
+  return [header, ...dataRows].join('\n');
+}
+
+async function exportRecipesCsv() {
+  const recipes = await queryRecipes();
+
+  function csvCell(value) {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  const header = 'recipe_name,ingredient_name';
+  const dataRows = recipes.flatMap((recipe) =>
+    (recipe.tagged_ingredients || []).map((ingredient) =>
+      [csvCell(recipe.name), csvCell(ingredient.name)].join(',')
+    )
+  );
   return [header, ...dataRows].join('\n');
 }
 
@@ -2646,6 +2699,52 @@ async function handleApi(req, res, pathname, searchParams) {
     } catch (error) {
       console.error(error);
       return sendJson(res, 500, { error: error.message || 'Export failed.' });
+    }
+  }
+
+  if (pathname === '/api/admin/export-portions' && method === 'GET') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const csvText = await exportPortionsCsv();
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = `portions-export-${date}.csv`;
+      const buf = Buffer.from(csvText, 'utf-8');
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': buf.length,
+        'Cache-Control': 'no-store'
+      });
+      res.end(buf);
+      return;
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Portions export failed.' });
+    }
+  }
+
+  if (pathname === '/api/admin/export-recipes' && method === 'GET') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const csvText = await exportRecipesCsv();
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = `recipes-export-${date}.csv`;
+      const buf = Buffer.from(csvText, 'utf-8');
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': buf.length,
+        'Cache-Control': 'no-store'
+      });
+      res.end(buf);
+      return;
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Recipe export failed.' });
     }
   }
 
