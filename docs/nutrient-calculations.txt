@@ -1,0 +1,11 @@
+Nutrient Rich Food Index = (protein/50) + (fiber/25) + (vitamin_A/5000) + (vitamin_c/60) + (vitamin_e/30) + (calcium/1000) + (iron/18) + (magnesium/400) + (potassium/3500) - (saturated_fat/20) - (added_sugar/50) - (sodium/2400)
+
+The Nutrition Composite Score uses the Nutrient Rich Food Index to produce a value between 1 and 5 using cutoff thresholds.
+Let `ind` be the Nutrient Rich Food Index calculated from above. Here are the scoring thresholds:
+```
+1 point: ind <= 4.1
+2 points: 4.1 < ind <= 10.6
+3 points: 10.6 < ind <= 18.2
+4 points: 18.2 < ind <= 30.5
+5 points: ind > 30.5
+```

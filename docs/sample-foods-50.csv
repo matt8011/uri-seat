@@ -1,0 +1,51 @@
+name,tagged_recipes,protein,fiber,vitamin_a,vitamin_c,vitamin_e,calcium,iron,magnesium,potassium,saturated_fat,added_sugar,sodium,freshwater_withdrawals,stress_weighted_water_use,acidifying_emissions,eutrophying_emissions,ghg_emissions,land_use
+Lentil Chili,"lentil chili,vegan entree,hot bar",18,14,320,18,1.2,90,5.4,72,780,0.6,3,540,180,5200,8.4,6.8,1.3,2.4
+Grilled Chicken Bowl,"grilled chicken,bowl,rice bowl",32,5,140,12,1.8,48,2.1,54,690,1.9,2,610,410,9600,14.7,9.8,2.6,4.8
+Roasted Broccoli,"roasted broccoli,vegetable side,green veggie",4,6,980,74,2.4,62,1.1,26,420,0.1,1,180,95,2400,4.8,3.2,0.7,1.2
+Greek Yogurt Parfait,"yogurt parfait,breakfast,fruit cup",15,3,110,9,0.4,220,0.3,24,310,1.4,14,95,260,7100,7.9,5.1,1.8,2.2
+Cheeseburger,"cheeseburger,grill station,beef entree",28,2,90,4,0.7,180,3.8,38,340,8.5,6,920,620,14300,24.2,18.4,5.4,8.9
+Black Bean Burger,"black bean burger,vegan burger,grill station",19,11,210,10,1.0,105,4.9,68,720,0.8,4,560,165,4700,7.4,5.9,1.2,2.1
+Turkey Sandwich,"turkey sandwich,deli,lunch",24,4,85,6,0.6,150,2.0,32,410,2.2,5,680,340,8200,10.8,7.2,2.0,3.3
+Garden Salad,"garden salad,salad bar,cold bar",3,4,760,28,1.3,55,1.2,22,330,0.1,2,120,88,2100,4.1,2.9,0.6,1.1
+Tofu Stir Fry,"tofu stir fry,vegan entree,asian station",17,7,260,16,1.7,130,3.1,58,640,0.5,4,530,150,5100,6.7,6.2,3.2,3.5
+Brown Rice Pilaf,"brown rice,pilaf,grain side",5,3,12,1,0.2,18,0.7,40,140,0.1,1,170,205,5900,9.8,6.4,1.5,2.8
+Baked Salmon,"baked salmon,fish entree,protein",30,0,75,2,2.1,20,0.9,34,510,2.7,0,390,370,8700,12.6,8.1,2.4,3.9
+Mashed Potatoes,"mashed potatoes,potato side,comfort food",4,3,40,6,0.3,26,0.8,28,460,1.6,2,410,125,3000,5.2,3.6,0.9,1.8
+Quinoa Salad,"quinoa salad,grain salad,cold bar",8,5,150,11,0.9,58,2.3,64,430,0.2,3,260,175,4600,7.3,5.6,1.1,2.0
+Chicken Caesar Wrap,"chicken caesar wrap,wrap,lunch",27,3,120,5,1.0,170,2.4,36,390,3.1,2,760,360,9100,13.5,8.9,2.7,4.2
+Veggie Pizza Slice,"veggie pizza,pizza station,vegetarian",14,3,180,8,0.8,240,2.7,30,320,4.4,3,780,295,7600,11.4,8.0,2.1,3.7
+Hummus Plate,"hummus plate,mezze,vegan snack",9,6,45,4,1.1,68,2.2,46,370,0.4,1,290,130,3900,6.1,4.8,0.9,1.9
+Beef Taco Bowl,"beef taco bowl,mexican station,hot bar",26,6,130,10,1.2,95,3.9,52,610,4.9,3,840,540,12500,20.4,14.8,4.1,6.7
+Spinach Omelet,"spinach omelet,breakfast,eggs",20,2,420,7,1.3,190,2.8,18,290,3.7,1,430,250,6400,8.1,5.4,1.6,2.5
+Avocado Toast,"avocado toast,breakfast,toast",7,8,70,9,2.4,44,1.6,36,410,1.1,2,360,145,3500,5.7,4.0,1.0,1.7
+Chicken Noodle Soup,"chicken soup,soup station,comfort food",12,1,60,3,0.2,30,0.9,14,250,0.7,1,860,220,5400,7.2,4.7,1.1,2.0
+Mac and Cheese,"mac and cheese,pasta side,comfort food",13,2,140,0,0.5,260,1.5,24,210,5.9,4,780,410,9800,15.6,10.5,2.9,4.9
+Falafel Pita,"falafel,pita,vegan lunch",15,9,95,7,1.0,110,3.4,52,590,0.9,3,540,170,4800,7.0,5.7,1.3,2.3
+Shrimp Stir Fry,"shrimp stir fry,seafood entree,asian station",24,4,160,14,1.6,92,2.5,42,560,0.6,4,720,330,7900,10.3,7.1,2.1,3.0
+Roasted Carrots,"roasted carrots,vegetable side,orange veggie",2,4,1010,8,0.7,36,0.5,16,280,0.1,3,170,102,2500,4.5,3.1,0.7,1.3
+Turkey Chili,"turkey chili,high protein,hot bar",29,10,240,16,1.0,88,4.6,60,760,1.8,4,650,290,7300,9.5,6.8,1.9,3.1
+Pesto Pasta,"pesto pasta,pasta station,vegetarian",11,3,120,5,1.7,74,1.3,32,260,2.6,2,520,240,6800,9.9,6.9,1.7,2.9
+Chickpea Curry,"chickpea curry,vegan entree,indian station",16,12,180,14,1.3,92,4.1,66,710,0.5,5,560,185,5000,8.0,6.1,1.4,2.5
+Buffalo Wings,"buffalo wings,grill station,protein",25,0,55,1,0.4,24,1.1,20,250,4.7,0,980,470,11600,18.1,12.6,3.8,5.9
+Fruit Cup,"fruit cup,breakfast,grab and go",1,3,95,36,0.4,18,0.4,12,250,0.0,11,10,82,1800,3.1,2.0,0.4,0.9
+Egg Salad Sandwich,"egg salad sandwich,deli,lunch",17,2,160,2,0.5,170,1.9,22,230,2.9,3,690,300,7200,9.2,6.3,1.8,2.8
+Roasted Sweet Potatoes,"sweet potatoes,vegetable side,orange veggie",3,5,1250,20,0.6,44,0.8,24,430,0.1,4,160,118,2700,4.9,3.4,0.8,1.5
+Pork Fried Rice,"pork fried rice,asian station,hot bar",18,2,100,5,0.5,34,1.8,28,300,2.3,3,790,355,8900,12.8,8.6,2.5,4.0
+Cottage Cheese Bowl,"cottage cheese,breakfast,protein snack",14,1,80,3,0.2,160,0.2,12,190,1.5,5,410,210,5200,6.8,4.5,1.2,1.9
+Veggie Burrito,"veggie burrito,mexican station,vegetarian",16,9,210,13,1.1,120,3.6,54,640,0.9,4,690,205,6100,9.1,6.7,1.5,2.7
+Beef Meatballs,"beef meatballs,italian station,protein",23,1,70,2,0.4,44,2.7,26,320,5.2,3,760,560,13200,21.8,15.7,4.6,7.2
+Chicken Alfredo,"chicken alfredo,pasta station,creamy pasta",29,2,110,4,0.7,180,1.8,34,350,4.8,2,740,390,9500,14.2,9.4,2.8,4.6
+Edamame Bowl,"edamame bowl,vegan protein,green bowl",17,8,90,10,1.0,98,3.0,64,620,0.4,2,330,160,4300,6.2,5.0,1.0,2.0
+Tomato Soup,"tomato soup,soup station,vegetarian",4,2,310,13,0.3,26,0.7,14,270,0.2,7,690,175,4000,6.3,4.2,0.9,1.6
+Turkey Burger,"turkey burger,grill station,protein",27,2,85,3,0.5,60,2.2,30,300,2.0,3,680,340,8400,11.1,7.4,2.1,3.5
+Stuffed Peppers,"stuffed peppers,vegetarian entree,baked dish",12,6,410,32,1.5,82,2.9,40,540,0.7,4,470,150,4300,6.5,4.9,1.1,2.1
+Yogurt Smoothie,"smoothie,breakfast,grab and go",10,2,130,18,0.4,240,0.3,18,350,0.9,17,105,230,6400,7.6,4.8,1.4,2.0
+BBQ Chicken Pizza,"bbq chicken pizza,pizza station,hot slice",18,2,100,4,0.6,210,1.6,28,290,4.1,7,830,365,9000,13.6,9.1,2.6,4.3
+Kale Caesar Salad,"kale salad,salad bar,greens",6,5,820,26,1.9,110,1.4,30,410,0.5,2,340,120,3100,5.0,3.6,0.8,1.4
+Baked Tofu Cubes,"baked tofu,vegan protein,hot bar",16,3,55,2,0.9,140,2.8,44,230,0.4,1,260,140,4700,6.4,5.5,2.9,3.1
+Ham and Cheese Panini,"panini,deli,hot sandwich",21,2,95,3,0.4,230,1.7,26,240,4.6,3,890,420,9800,14.9,10.1,2.9,4.7
+Vegetable Lo Mein,"lo mein,asian station,noodles",9,4,150,8,0.7,48,1.5,34,320,0.5,4,620,225,6600,9.7,6.8,1.6,2.8
+Chicken Fajitas,"chicken fajitas,mexican station,protein",30,5,180,18,1.1,76,2.3,44,610,1.7,3,610,315,7900,10.9,7.5,2.2,3.6
+Butternut Squash Soup,"squash soup,soup station,vegetarian",3,4,1350,20,1.0,52,0.8,20,390,0.2,5,390,140,3300,5.4,3.7,0.8,1.5
+Bean and Rice Burrito,"bean burrito,mexican station,vegan lunch",14,10,160,9,0.8,88,3.7,58,690,0.7,3,710,195,5400,8.5,6.3,1.4,2.4
+Tuna Salad Wrap,"tuna wrap,deli,seafood lunch",23,3,70,2,0.5,42,1.2,24,260,1.1,2,760,280,7000,8.8,5.9,1.7,2.6
