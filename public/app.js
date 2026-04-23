@@ -11,19 +11,21 @@ const MEAL_STORAGE_KEY = 'seat-my-meal-v1';
 
 // ─── Nutrition definitions ────────────────────────────────
 const NUTRIENTS = [
-  { key: 'protein',       label: 'Protein',     color: '#2a7abf', positive: true,  divisor: 50 },
-  { key: 'fiber',         label: 'Fiber',       color: '#3aaa4a', positive: true,  divisor: 25 },
-  { key: 'calcium',       label: 'Calcium',     color: '#26c6da', positive: true,  divisor: 1000 },
-  { key: 'iron',          label: 'Iron',        color: '#ef5350', positive: true,  divisor: 18 },
-  { key: 'vitamin_a',     label: 'Vitamin A',   color: '#ff9800', positive: true,  divisor: 5000 },
-  { key: 'vitamin_c',     label: 'Vitamin C',   color: '#ffd600', positive: true,  divisor: 60 },
-  { key: 'vitamin_e',     label: 'Vitamin E',   color: '#8bc34a', positive: true,  divisor: 30 },
-  { key: 'magnesium',     label: 'Magnesium',   color: '#ab47bc', positive: true,  divisor: 400 },
-  { key: 'potassium',     label: 'Potassium',   color: '#26a69a', positive: true,  divisor: 3500 },
-  { key: 'saturated_fat', label: 'Sat. Fat',    color: '#ff7043', positive: false, divisor: 20 },
-  { key: 'added_sugar',   label: 'Added Sugar', color: '#e53935', positive: false, divisor: 50 },
-  { key: 'sodium',        label: 'Sodium',      color: '#b71c1c', positive: false, divisor: 2400 },
+  { key: 'protein',       label: 'Protein (g)',         color: '#2a7abf', positive: true,  divisor: 50 },
+  { key: 'fiber',         label: 'Fiber (g)',           color: '#3aaa4a', positive: true,  divisor: 25 },
+  { key: 'calcium',       label: 'Calcium (mg)',        color: '#26c6da', positive: true,  divisor: 1000 },
+  { key: 'iron',          label: 'Iron (mg)',           color: '#ef5350', positive: true,  divisor: 18 },
+  { key: 'vitamin_a',     label: 'Vitamin A (IU)',      color: '#ff9800', positive: true,  divisor: 5000 },
+  { key: 'vitamin_c',     label: 'Vitamin C (mg)',      color: '#ffd600', positive: true,  divisor: 60 },
+  { key: 'vitamin_e',     label: 'Vitamin E (IU)',      color: '#8bc34a', positive: true,  divisor: 30 },
+  { key: 'magnesium',     label: 'Magnesium (mg)',      color: '#ab47bc', positive: true,  divisor: 400 },
+  { key: 'potassium',     label: 'Potassium (mg)',      color: '#26a69a', positive: true,  divisor: 3500 },
+  { key: 'saturated_fat', label: 'Saturated Fat (g)',   color: '#ff7043', positive: false, divisor: 20 },
+  { key: 'added_sugar',   label: 'Added Sugar (g)',     color: '#e53935', positive: false, divisor: 50 },
+  { key: 'sodium',        label: 'Sodium (mg)',         color: '#b71c1c', positive: false, divisor: 2400 },
 ];
+
+const NUTRIENT_LABELS = Object.fromEntries(NUTRIENTS.map(({ key, label }) => [key, label]));
 
 // ─── Environmental circles config ────────────────────────
 const ENV_CIRCLES = [
@@ -115,8 +117,6 @@ const envCircles4El    = document.getElementById('envCircles4');
 const tabFoodsEl       = document.getElementById('tabFoods');
 const tabNutrientsEl   = document.getElementById('tabNutrients');
 const tabEnvEl         = document.getElementById('tabEnv');
-const searchFormEl     = document.getElementById('searchForm');
-const searchInputEl    = document.getElementById('searchInput');
 const searchSummaryEl  = document.getElementById('searchSummary');
 const resultsGridEl    = document.getElementById('resultsGrid');
 const emptyStateEl     = document.getElementById('emptyState');
@@ -254,7 +254,26 @@ function getMealItemById(itemId) {
   return state.mealItems.find((item) => item.id === itemId) || null;
 }
 
+function isMealItemCustomized(mealItem) {
+  if ((mealItem.addedIngredients || []).length > 0) {
+    return true;
+  }
+
+  for (const ing of mealItem.ingredients || []) {
+    if (getIngredientCount(mealItem.id, normalizeIngredientKey(ing.name)) !== 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function getMealItemScore(mealItem) {
+  const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
+  if (recipe && !isMealItemCustomized(mealItem)) {
+    return recipe.sustainability_index ?? null;
+  }
+
   const allIngs = [
     ...mealItem.ingredients,
     ...(mealItem.addedIngredients || []),
@@ -277,6 +296,9 @@ function getMealItemScore(mealItem) {
 function getMealItemNutritionScore(mealItem) {
   const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
   if (!recipe) return null;
+  if (!isMealItemCustomized(mealItem)) {
+    return recipe.nutrition_composite_score ?? null;
+  }
   const rNut = recipe.nutrition_composite_score;
   const rEnv = recipe.environmental_composite_score;
   if (rNut == null) return null;
@@ -291,6 +313,9 @@ function getMealItemNutritionScore(mealItem) {
 function getMealItemEnvScore(mealItem) {
   const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
   if (!recipe) return null;
+  if (!isMealItemCustomized(mealItem)) {
+    return recipe.environmental_composite_score ?? null;
+  }
   const rNut = recipe.nutrition_composite_score;
   const rEnv = recipe.environmental_composite_score;
   if (rEnv == null) return null;
@@ -486,7 +511,7 @@ function renderScoreProminentGrid(entry) {
   return `
     <div class="score-prominent-grid">
       <div class="score-prominent-card score-prominent-si" style="background:${siPal.background};border-color:${siPal.border};color:${siPal.text};">
-        <span class="score-prominent-label">Sustainability Index</span>
+        <span class="score-prominent-label">Sustainability Score</span>
         <strong class="score-prominent-value">${escapeHtml(formatMetric(entry.sustainability_index))}</strong>
         <span class="score-prominent-eq">= Nutrition + Environmental</span>
       </div>
@@ -506,12 +531,12 @@ function renderScoreProminentGrid(entry) {
 function renderNutrientSubgrid(entry) {
   return `
     <div class="score-subgrid">
-      <div class="score-subcell"><span>Protein</span><strong>${escapeHtml(formatMetric(entry.protein))}</strong></div>
-      <div class="score-subcell"><span>Fiber</span><strong>${escapeHtml(formatMetric(entry.fiber))}</strong></div>
-      <div class="score-subcell"><span>Calcium</span><strong>${escapeHtml(formatMetric(entry.calcium))}</strong></div>
-      <div class="score-subcell"><span>Iron</span><strong>${escapeHtml(formatMetric(entry.iron))}</strong></div>
-      <div class="score-subcell"><span>Sat. Fat</span><strong>${escapeHtml(formatMetric(entry.saturated_fat))}</strong></div>
-      <div class="score-subcell"><span>Sodium</span><strong>${escapeHtml(formatMetric(entry.sodium))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.protein)}</span><strong>${escapeHtml(formatMetric(entry.protein))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.fiber)}</span><strong>${escapeHtml(formatMetric(entry.fiber))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.calcium)}</span><strong>${escapeHtml(formatMetric(entry.calcium))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.iron)}</span><strong>${escapeHtml(formatMetric(entry.iron))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.saturated_fat)}</span><strong>${escapeHtml(formatMetric(entry.saturated_fat))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.sodium)}</span><strong>${escapeHtml(formatMetric(entry.sodium))}</strong></div>
     </div>`;
 }
 
@@ -538,14 +563,14 @@ function renderIngredientScorePill(ingredient) {
     data-open="false"
     data-ingredient-detail-trigger
     data-ingredient-key="${key}"
-    title="SI ${label}"
-    aria-label="${name} sustainability index ${label}"
+    title="SS ${label}"
+    aria-label="${name} sustainability score ${label}"
     aria-expanded="false"
   >
     <span>${name}</span>
     <span class="ingredient-pill-score"
       style="--ingredient-score-bg-start:${escapeHtml(pal.background)};--ingredient-score-bg-end:${escapeHtml(pal.border)};--ingredient-score-text:${escapeHtml(pal.text)};--ingredient-score-border:${escapeHtml(pal.border)};">
-      SI ${label}
+      SS ${label}
     </span>
   </button>`;
 }
@@ -649,7 +674,7 @@ function renderIngredientSearch(portionId) {
             data-ing-id="${escapeHtml(String(item.id ?? ''))}"
           >
             <span>${escapeHtml(item.name)}</span>
-            <span class="score-chip" style="background:${escapeHtml(pal.background)};border:1px solid ${escapeHtml(pal.border)};color:${escapeHtml(pal.text)};">SI ${escapeHtml(formatMetric(item.sustainability_index))}</span>
+            <span class="score-chip" style="background:${escapeHtml(pal.background)};border:1px solid ${escapeHtml(pal.border)};color:${escapeHtml(pal.text)};">SS ${escapeHtml(formatMetric(item.sustainability_index))}</span>
           </button>`;
         }).join('')}
       </div>`
@@ -738,7 +763,7 @@ function renderPlateInfoPanel() {
             data-recipe-id="${escapeHtml(String(r.id))}"
           >
             <span>${escapeHtml(r.name)}</span>
-            <span class="score-chip" style="background:${escapeHtml(rPal.background)};border:1px solid ${escapeHtml(rPal.border)};color:${escapeHtml(rPal.text)};">SI ${escapeHtml(formatMetric(r.sustainability_index))}</span>
+            <span class="score-chip" style="background:${escapeHtml(rPal.background)};border:1px solid ${escapeHtml(rPal.border)};color:${escapeHtml(rPal.text)};">SS ${escapeHtml(formatMetric(r.sustainability_index))}</span>
           </button>`;
         }).join('')}
       </div>`
@@ -748,9 +773,9 @@ function renderPlateInfoPanel() {
   plateInfoContEl.innerHTML = `
     <div class="score-prominent-grid">
       <div class="score-prominent-card score-prominent-si" style="background:${overallPal.background};border-color:${overallPal.border};color:${overallPal.text};">
-        <span class="score-prominent-label">Overall Meal SI</span>
+        <span class="score-prominent-label">Overall Meal SS</span>
         <strong class="score-prominent-value">${escapeHtml(formatMetric(overallScore))}</strong>
-        <span class="score-prominent-eq">avg. sustainability index</span>
+        <span class="score-prominent-eq">avg. sustainability score</span>
       </div>
     </div>
     <div class="si-breakdown-row">
@@ -775,7 +800,7 @@ function renderPlateInfoPanel() {
         return `<div class="meal-agg-row" data-meal-agg-row data-recipe-id="${safeRecipeId}">
           <span class="meal-agg-name">${escapeHtml(agg.recipeName)}</span>
           <span class="meal-agg-count-center">${escapeHtml(String(agg.portions.length))}\u00d7</span>
-          <span class="score-chip" style="background:${pal.background};border:1px solid ${pal.border};color:${pal.text};">SI ${escapeHtml(formatMetric(avgScore))}</span>
+          <span class="score-chip" style="background:${pal.background};border:1px solid ${pal.border};color:${pal.text};">SS ${escapeHtml(formatMetric(avgScore))}</span>
           <div class="qty-control qty-control-sm">
             <button class="qty-btn qty-minus" type="button" data-meal-agg-minus data-recipe-id="${safeRecipeId}" aria-label="Remove one portion">&#8722;</button>
             <span class="qty-value">${escapeHtml(String(agg.portions.length))}</span>
@@ -1015,7 +1040,7 @@ function renderMealPlatePills() {
   mealPlatePillsEl.innerHTML = `
     <span class="pill meal-pill-portions">${escapeHtml(String(totalPortions))} Portion${totalPortions === 1 ? '' : 's'}</span>
     <span class="pill meal-pill-si" style="background:${escapeHtml(siPal.background)};border:1px solid ${escapeHtml(siPal.border)};color:${escapeHtml(siPal.text)};">
-      SI ${overallScore !== null ? escapeHtml(formatMetric(overallScore)) : '\u2014'}
+      SS ${overallScore !== null ? escapeHtml(formatMetric(overallScore)) : '\u2014'}
     </span>`;
 }
 
@@ -1080,7 +1105,7 @@ function buildRecipeCard(recipe) {
     <button class="star-btn${isStarred ? ' is-starred' : ''}" type="button" data-star-recipe data-recipe-id="${escapeHtml(String(recipe.id))}" aria-label="Favorite">\u2605</button>
     <div class="result-topline">
       <span class="score-chip" style="background:${escapeHtml(pal.background)};border:1px solid ${escapeHtml(pal.border)};color:${escapeHtml(pal.text)};">
-        Sustainability ${escapeHtml(formatMetric(recipe.sustainability_index))}
+        Sustainability Score ${escapeHtml(formatMetric(recipe.sustainability_index))}
       </span>
     </div>
     <h3 class="result-title">${escapeHtml(recipe.name)}</h3>
@@ -1177,7 +1202,7 @@ function renderCatalogDetail() {
       <div class="catalog-detail-inner">
         <p class="detail-copy">Last updated ${escapeHtml(formatDateTime(ingredient.updated_at))}.</p>
         ${renderScoreProminentGrid(ingredient)}
-        <p class="panel-kicker">Nutrition</p>
+        <p class="panel-kicker">Nutrition (per 100g)</p>
         ${renderNutrientSubgrid(ingredient)}
         <p class="panel-kicker">Environmental</p>
         ${renderEnvSubgrid(ingredient)}
@@ -1634,13 +1659,6 @@ document.addEventListener('click', (event) => {
     renderPlatePie();
     renderPlateInfoPanel();
   }
-});
-
-// Search form
-searchFormEl.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  await loadRecipes(searchInputEl.value);
-  catalogSectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 // Catalog recipe search (live filter)

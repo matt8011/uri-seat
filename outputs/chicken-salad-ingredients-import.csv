@@ -1,0 +1,8 @@
+name,tagged_recipes,protein,fiber,vitamin_a,vitamin_c,vitamin_e,calcium,iron,magnesium,potassium,saturated_fat,added_sugar,sodium,freshwater_withdrawals,stress_weighted_water_use,acidifying_emissions,eutrophying_emissions,ghg_emissions,land_use
+Mayonnaise,Chicken Salad,0,0,185,0,0,6,0,0,52,0.92,0,42.9,578,17983,53.7,21.8,4.7,6.3
+Chicken (Boneless),Chicken Salad,27,0,32,0,0,6,0,0,401,0.6,0,467,660,14178,102.4,48.7,9.9,12.2
+Celery,Chicken Salad,0,1.8,449,8.2,3,18.8,0.33,11,12.7,0,0,4.1,103,4911,6.4,2.3,0.5,0.4
+Salt (Iodized),Chicken Salad,0,0,0,0,0,3.05,0,0,0.122,0,0,39333,103,4911,6.4,2.3,0.5,0.4
+Onion Powder,Chicken Salad,0,0,0,0.562,0.006,0,0,2.71,23.6,0,0,1.75,14,932,3.6,3.2,0.5,0.4
+Garlic Powder,Chicken Salad,0.515,0,0,0.037,0.021,0,0,2.39,1190,0,0,1.86,14,932,3.6,3.2,0.5,0.4
+Black Pepper,Chicken Salad,0,0,12.6,0,0.024,10.2,0.223,3.93,30.6,0,0,0.46,103,4911,6.4,2.3,0.5,0.4

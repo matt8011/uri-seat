@@ -72,7 +72,7 @@
                 </label>
                 <label class="form-grid-span-2">
                   <span>Tagged recipes</span>
-                  <input id="tagged_recipes" type="text" required placeholder="Comma-separated recipe tags">
+                  <input id="tagged_recipes" type="text" placeholder="Optional comma-separated recipe tags">
                 </label>
               </div>
             </section>
@@ -83,18 +83,18 @@
                 <p>Enter the nutrient values used for later composite calculations.</p>
               </div>
               <div class="form-grid">
-                <label><span>Protein</span><input id="protein" type="number" step="0.01" required></label>
-                <label><span>Fiber</span><input id="fiber" type="number" step="0.01" required></label>
-                <label><span>Vitamin A</span><input id="vitamin_a" type="number" step="0.01" required></label>
-                <label><span>Vitamin C</span><input id="vitamin_c" type="number" step="0.01" required></label>
-                <label><span>Vitamin E</span><input id="vitamin_e" type="number" step="0.01" required></label>
-                <label><span>Calcium</span><input id="calcium" type="number" step="0.01" required></label>
-                <label><span>Iron</span><input id="iron" type="number" step="0.01" required></label>
-                <label><span>Magnesium</span><input id="magnesium" type="number" step="0.01" required></label>
-                <label><span>Potassium</span><input id="potassium" type="number" step="0.01" required></label>
-                <label><span>Saturated Fat</span><input id="saturated_fat" type="number" step="0.01" required></label>
-                <label><span>Added Sugar</span><input id="added_sugar" type="number" step="0.01" required></label>
-                <label><span>Sodium</span><input id="sodium" type="number" step="0.01" required></label>
+                <label><span>Protein (g)</span><input id="protein" type="number" step="0.01" required></label>
+                <label><span>Fiber (g)</span><input id="fiber" type="number" step="0.01" required></label>
+                <label><span>Vitamin A (IU)</span><input id="vitamin_a" type="number" step="0.01" required></label>
+                <label><span>Vitamin C (mg)</span><input id="vitamin_c" type="number" step="0.01" required></label>
+                <label><span>Vitamin E (IU)</span><input id="vitamin_e" type="number" step="0.01" required></label>
+                <label><span>Calcium (mg)</span><input id="calcium" type="number" step="0.01" required></label>
+                <label><span>Iron (mg)</span><input id="iron" type="number" step="0.01" required></label>
+                <label><span>Magnesium (mg)</span><input id="magnesium" type="number" step="0.01" required></label>
+                <label><span>Potassium (mg)</span><input id="potassium" type="number" step="0.01" required></label>
+                <label><span>Saturated Fat (g)</span><input id="saturated_fat" type="number" step="0.01" required></label>
+                <label><span>Added Sugar (g)</span><input id="added_sugar" type="number" step="0.01" required></label>
+                <label><span>Sodium (mg)</span><input id="sodium" type="number" step="0.01" required></label>
                 <label><span>Nutrient Rich Food Index</span><input id="nutrient_rich_food_index" type="number" step="0.01" readonly placeholder="Calculated later"></label>
                 <label><span>Nutrition Composite Score</span><input id="nutrition_composite_score" type="number" step="0.01" readonly placeholder="Calculated later"></label>
               </div>
@@ -148,9 +148,9 @@
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Bulk import</p>
-              <h2>Upload CSV</h2>
+              <h2>Upload Ingredient CSV</h2>
             </div>
-            <p class="panel-meta">JSON API also supported</p>
+            <p class="panel-meta">Canonical per-100g ingredient data</p>
           </div>
           <div class="import-controls">
             <label class="file-picker">
@@ -161,7 +161,7 @@
               <input id="replaceExisting" type="checkbox">
               <span>Replace all existing food entries before import</span>
             </label>
-            <button id="importButton" class="button button-secondary" type="button">Import CSV</button>
+            <button id="importButton" class="button button-secondary" type="button">Import Ingredients CSV</button>
             <button id="exportIngredientsButton" class="button button-ghost" type="button">Export Ingredients CSV</button>
           </div>
           <div id="importMessage" class="admin-message"></div>
@@ -170,6 +170,32 @@
             `vitamin_e`, `calcium`, `iron`, `magnesium`, `potassium`, `saturated_fat`, `added_sugar`,
             `sodium`, `freshwater_withdrawals`, `stress_weighted_water_use`, `acidifying_emissions`,
             `eutrophying_emissions`, `ghg_emissions`, and `land_use`.
+          </p>
+        </section>
+
+        <section class="panel import-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Bulk import</p>
+              <h2>Upload Recipe Portions CSV</h2>
+            </div>
+            <p class="panel-meta">Per-portion ingredient grams for recipe scoring</p>
+          </div>
+          <div class="import-controls">
+            <label class="file-picker">
+              <span>CSV file</span>
+              <input id="recipeCsvFile" type="file" accept=".csv,text/csv">
+            </label>
+            <label class="checkbox-row">
+              <input id="replaceRecipeExisting" type="checkbox">
+              <span>Replace all existing recipe portion rows before import</span>
+            </label>
+            <button id="recipeImportButton" class="button button-secondary" type="button">Import Recipe CSV</button>
+          </div>
+          <div id="recipeImportMessage" class="admin-message"></div>
+          <p class="hint-copy">
+            Expected headers: `recipe_name`, `ingredient_name`, and `grams_in_portion`.
+            The app multiplies each ingredient's per-100g values by `grams_in_portion / 100` to build recipe-level scores.
           </p>
         </section>
 
@@ -186,8 +212,8 @@
           </div>
           <div id="recipeMessage" class="admin-message"></div>
           <p class="hint-copy">
-            Rebuilds the recipe table from the current ingredient entries by averaging the sustainability
-            indexes of all ingredients tagged with each recipe.
+            Rebuilds the recipe table from imported recipe portion rows when available.
+            If no recipe portion rows exist, SEAT falls back to the older ingredient-tag grouping model.
           </p>
         </section>
 
@@ -233,7 +259,7 @@
               <p class="panel-kicker">Recipes</p>
               <h2>Current recipes (<span id="recipeCount">0</span>)</h2>
             </div>
-            <p id="recipeRangeSummary" class="panel-meta">Generated from ingredient tags</p>
+            <p id="recipeRangeSummary" class="panel-meta">Generated from recipe portions import when available</p>
           </div>
           <div class="table-controls">
             <input type="search" id="recipeSearch" class="table-search" placeholder="Search recipes...">
@@ -258,7 +284,7 @@
           </div>
         </section>
 
-        <section class="panel import-panel">
+        <section id="dangerZonePanel" class="panel import-panel hidden">
           <div class="panel-header">
             <div>
               <p class="panel-kicker">Danger Zone</p>
@@ -273,8 +299,8 @@
           <div id="clearIngredientsMessage" class="admin-message"></div>
           <div id="clearRecipesMessage" class="admin-message"></div>
           <p class="hint-copy">
-            <strong>Clear Ingredients</strong> removes all ingredient entries and regenerated recipes.<br>
-            <strong>Clear Recipes</strong> removes only the recipes table.
+            <strong>Clear Ingredients</strong> removes all ingredient entries, recipe portion rows, and regenerated recipes.<br>
+            <strong>Clear Recipes</strong> removes recipe portion rows and the regenerated recipes table.
           </p>
         </section>
       </section>

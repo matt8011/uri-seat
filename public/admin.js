@@ -18,6 +18,11 @@ const DB_IMPORT_COLUMNS = [
   'added_sugar', 'sodium', 'freshwater_withdrawals', 'stress_weighted_water_use',
   'acidifying_emissions', 'eutrophying_emissions', 'ghg_emissions', 'land_use'
 ];
+const RECIPE_IMPORT_COLUMNS = [
+  'recipe_name',
+  'ingredient_name',
+  'grams_in_portion'
+];
 
 const REQUIRED_FIELDS = [
   'protein', 'fiber', 'vitamin_a', 'vitamin_c', 'vitamin_e',
@@ -140,6 +145,7 @@ const elements = {
   authStatus: document.getElementById('authStatus'),
   authHint: document.getElementById('authHint'),
   adminWorkspace: document.getElementById('adminWorkspace'),
+  dangerZonePanel: document.getElementById('dangerZonePanel'),
   entryForm: document.getElementById('entryForm'),
   entryId: document.getElementById('entryId'),
   cancelEdit: document.getElementById('cancelEdit'),
@@ -157,6 +163,10 @@ const elements = {
   importButton: document.getElementById('importButton'),
   exportIngredientsButton: document.getElementById('exportIngredientsButton'),
   importMessage: document.getElementById('importMessage'),
+  recipeCsvFile: document.getElementById('recipeCsvFile'),
+  replaceRecipeExisting: document.getElementById('replaceRecipeExisting'),
+  recipeImportButton: document.getElementById('recipeImportButton'),
+  recipeImportMessage: document.getElementById('recipeImportMessage'),
   repopulateRecipesButton: document.getElementById('repopulateRecipesButton'),
   recipeMessage: document.getElementById('recipeMessage'),
   recipeTableBody: document.getElementById('recipeTableBody'),
@@ -256,6 +266,11 @@ function setImportMessage(message, isError = false) {
   elements.importMessage.style.color = isError ? '#a93d30' : '';
 }
 
+function setRecipeImportMessage(message, isError = false) {
+  elements.recipeImportMessage.textContent = message;
+  elements.recipeImportMessage.style.color = isError ? '#a93d30' : '';
+}
+
 function setRecipeMessage(message, isError = false) {
   elements.recipeMessage.textContent = message;
   elements.recipeMessage.style.color = isError ? '#a93d30' : '';
@@ -298,14 +313,16 @@ async function loadRecipes() {
 function renderAuth() {
   const user = state.session;
   const isAdmin = Boolean(user?.isAdmin);
+  const isSuperAdmin = Boolean(user?.isSuperAdmin);
 
   elements.adminNavLabel.textContent = user ? 'Admin' : 'Login';
   elements.signOutButton.classList.toggle('hidden', !user);
   elements.adminWorkspace.classList.toggle('hidden', !isAdmin);
+  elements.dangerZonePanel.classList.toggle('hidden', !isSuperAdmin);
 
   if (!state.config?.googleAuthEnabled) {
     elements.authStatus.textContent = 'Google Auth is not configured yet.';
-    elements.authHint.textContent = 'Set GOOGLE_CLIENT_ID, SESSION_SECRET, and ADMIN_EMAILS on the server to enable admin access.';
+    elements.authHint.textContent = 'Set GOOGLE_CLIENT_ID, SESSION_SECRET, ADMIN_EMAILS, and SUPERADMIN_EMAILS on the server to enable admin access.';
     elements.googleMount.classList.add('hidden');
     elements.googleMount.classList.remove('is-ready');
     return;
@@ -314,6 +331,9 @@ function renderAuth() {
   if (!user) {
     elements.authStatus.textContent = 'Authorized users only. No session active.';
     elements.authHint.textContent = 'Sign in to manage the SEAT database.';
+  } else if (isSuperAdmin) {
+    elements.authStatus.textContent = `Signed in as ${user.name}`;
+    elements.authHint.textContent = `${user.email} has super admin access.`;
   } else if (isAdmin) {
     elements.authStatus.textContent = `Signed in as ${user.name}`;
     elements.authHint.textContent = `${user.email} has admin access.`;
@@ -386,6 +406,9 @@ function renderAdminTable() {
 
   for (const item of pageItems) {
     const isMissing = REQUIRED_FIELDS.some((f) => item[f] === null || item[f] === undefined);
+    const deleteButton = state.session?.isSuperAdmin
+      ? `<button class="button button-danger" type="button" data-action="delete" data-id="${item.id}">Delete</button>`
+      : '';
     const row = document.createElement('tr');
     if (isMissing) row.classList.add('row-incomplete');
     row.innerHTML = `
@@ -396,7 +419,7 @@ function renderAdminTable() {
       <td data-label="Actions">
         <div class="table-actions">
           <button class="button button-secondary" type="button" data-action="edit" data-id="${item.id}">Edit</button>
-          <button class="button button-danger" type="button" data-action="delete" data-id="${item.id}">Delete</button>
+          ${deleteButton}
         </div>
       </td>
     `;
@@ -446,6 +469,9 @@ function renderRecipeTable() {
   }
 
   for (const recipe of pageRecipes) {
+    const deleteButton = state.session?.isSuperAdmin
+      ? `<button class="button button-danger" type="button" data-action="delete-recipe" data-id="${recipe.id}" data-name="${escapeHtml(recipe.name)}">Delete</button>`
+      : '';
     const row = document.createElement('tr');
     row.innerHTML = `
       <td data-label="Recipe">${escapeHtml(recipe.name)}</td>
@@ -453,7 +479,7 @@ function renderRecipeTable() {
       <td data-label="Updated">${escapeHtml(formatDateTime(recipe.updated_at))}</td>
       <td data-label="Actions">
         <div class="table-actions">
-          <button class="button button-danger" type="button" data-action="delete-recipe" data-id="${recipe.id}" data-name="${escapeHtml(recipe.name)}">Delete</button>
+          ${deleteButton}
         </div>
       </td>
     `;
@@ -642,6 +668,7 @@ elements.entryForm.addEventListener('submit', async (event) => {
     });
     clearForm();
     await loadItems();
+    await loadRecipes();
     setAdminMessage(id ? 'Entry updated.' : 'Entry created.');
   } catch (error) {
     setAdminMessage(error.message, true);
@@ -671,6 +698,10 @@ elements.adminTableBody.addEventListener('click', async (event) => {
   }
 
   if (button.dataset.action === 'delete') {
+    if (!state.session?.isSuperAdmin) {
+      setAdminMessage('Super admin access required to delete ingredients.', true);
+      return;
+    }
     const confirmed = window.confirm(`Delete ${item.name}?`);
     if (!confirmed) {
       return;
@@ -680,6 +711,7 @@ elements.adminTableBody.addEventListener('click', async (event) => {
       setAdminMessage(`Deleting ${item.name}...`);
       await api(`/api/items/${id}`, { method: 'DELETE' });
       await loadItems();
+      await loadRecipes();
       clearForm();
       setAdminMessage(`${item.name} deleted.`);
     } catch (error) {
@@ -691,6 +723,10 @@ elements.adminTableBody.addEventListener('click', async (event) => {
 elements.recipeTableBody.addEventListener('click', async (event) => {
   const button = event.target.closest('button[data-action="delete-recipe"]');
   if (!button) return;
+  if (!state.session?.isSuperAdmin) {
+    setRecipeMessage('Super admin access required to delete recipes.', true);
+    return;
+  }
 
   const id = Number(button.dataset.id);
   const name = button.dataset.name;
@@ -818,6 +854,7 @@ elements.importButton.addEventListener('click', async () => {
     });
 
     await loadItems();
+    await loadRecipes();
     const parts = [];
     if (result.inserted > 0) parts.push(`${result.inserted} inserted`);
     if (result.updated > 0) parts.push(`${result.updated} updated`);
@@ -826,6 +863,53 @@ elements.importButton.addEventListener('click', async () => {
     elements.csvFile.value = '';
   } catch (error) {
     setImportMessage(error.message, true);
+  }
+});
+
+elements.recipeImportButton.addEventListener('click', async () => {
+  const file = elements.recipeCsvFile.files?.[0];
+  if (!file) {
+    setRecipeImportMessage('Choose a recipe CSV file first.', true);
+    return;
+  }
+
+  try {
+    setRecipeImportMessage('Reading recipe CSV...');
+    const csvText = await file.text();
+    const csvHeaders = parseCsvFirstRow(csvText).map(normalizeHeader);
+    const missingHeaders = RECIPE_IMPORT_COLUMNS.filter((header) => !csvHeaders.includes(header));
+
+    if (missingHeaders.length > 0) {
+      setRecipeImportMessage(
+        `Missing required headers: ${missingHeaders.join(', ')}.`,
+        true
+      );
+      return;
+    }
+
+    setRecipeImportMessage('Importing recipe portions...');
+    const result = await api('/api/recipes/import', {
+      method: 'POST',
+      body: JSON.stringify({
+        csvText,
+        replaceExisting: elements.replaceRecipeExisting.checked
+      })
+    });
+
+    await loadRecipes();
+    const parts = [];
+    if (result.inserted > 0) parts.push(`${result.inserted} inserted`);
+    if (result.updated > 0) parts.push(`${result.updated} updated`);
+    if (result.skipped > 0) parts.push(`${result.skipped} skipped`);
+    const suffix = result.mode === 'portion-sized'
+      ? ` Built ${result.recipeCount} weighted recipe${result.recipeCount === 1 ? '' : 's'}.`
+      : '';
+    setRecipeImportMessage(
+      `${parts.length ? parts.join(', ') : 'Nothing to import.'}${suffix}`
+    );
+    elements.recipeCsvFile.value = '';
+  } catch (error) {
+    setRecipeImportMessage(error.message, true);
   }
 });
 
@@ -853,7 +937,7 @@ elements.exportIngredientsButton.addEventListener('click', async () => {
 
 elements.repopulateRecipesButton.addEventListener('click', async () => {
   try {
-    setRecipeMessage('Rebuilding recipes from ingredient tags...');
+    setRecipeMessage('Rebuilding recipes...');
     elements.repopulateRecipesButton.disabled = true;
     const result = await api('/api/recipes/repopulate', {
       method: 'POST'
@@ -862,8 +946,11 @@ elements.repopulateRecipesButton.addEventListener('click', async () => {
     state.recipes = result.recipes;
     pagination.recipePage = 1;
     renderRecipeTable();
+    const modeSummary = result.mode === 'portion-sized'
+      ? `${result.recipeCount} weighted recipe${result.recipeCount === 1 ? '' : 's'} from ${result.recipeIngredientCount} recipe portion row${result.recipeIngredientCount === 1 ? '' : 's'}.`
+      : `${result.recipeCount} fallback recipe${result.recipeCount === 1 ? '' : 's'} from ${result.ingredientCount} ingredient entr${result.ingredientCount === 1 ? 'y' : 'ies'}.`;
     setRecipeMessage(
-      `Built ${result.recipeCount} recipe${result.recipeCount === 1 ? '' : 's'} from ${result.ingredientCount} ingredient entr${result.ingredientCount === 1 ? 'y' : 'ies'}.`
+      `Built ${modeSummary}`
     );
   } catch (error) {
     setRecipeMessage(error.message, true);
@@ -873,6 +960,10 @@ elements.repopulateRecipesButton.addEventListener('click', async () => {
 });
 
 elements.clearIngredientsButton.addEventListener('click', async () => {
+  if (!state.session?.isSuperAdmin) {
+    setClearIngredientsMessage('Super admin access required to clear ingredients.', true);
+    return;
+  }
   const firstConfirmation = window.confirm(
     'Are you sure you want to clear all ingredient AND recipe data?'
   );
@@ -903,6 +994,10 @@ elements.clearIngredientsButton.addEventListener('click', async () => {
 });
 
 elements.clearRecipesButton.addEventListener('click', async () => {
+  if (!state.session?.isSuperAdmin) {
+    setClearRecipesMessage('Super admin access required to clear recipes.', true);
+    return;
+  }
   const firstConfirmation = window.confirm(
     'Are you sure you want to clear all recipe data only?'
   );
