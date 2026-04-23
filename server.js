@@ -511,6 +511,14 @@ function averageMetric(values) {
   return roundMetric(numbers.reduce((sum, value) => sum + value, 0) / numbers.length);
 }
 
+function weightedAverageMetric(entries) {
+  const valid = entries.filter(({ value, weight }) => isFiniteNumber(value) && isFiniteNumber(weight));
+  if (valid.length === 0) return null;
+  const totalWeight = valid.reduce((sum, { weight }) => sum + Number(weight), 0);
+  if (totalWeight === 0) return null;
+  return roundMetric(valid.reduce((sum, { value, weight }) => sum + Number(value) * Number(weight), 0) / totalWeight);
+}
+
 function sumMetric(values) {
   const numbers = values.filter(isFiniteNumber).map(Number);
   if (numbers.length === 0) {
@@ -1161,6 +1169,218 @@ function buildRecipeRows(items, timestamp) {
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
 }
 
+<<<<<<< Updated upstream
+=======
+function buildPortionSizedRecipeRows(items, recipeIngredients, timestamp) {
+  const ingredientByName = new Map(
+    items.map((item) => [normalizeRecipeKey(item.name), item])
+  );
+  const groupedRecipes = new Map();
+
+  for (const row of recipeIngredients) {
+    const normalizedKey = normalizeRecipeKey(row.recipe_name);
+    if (!groupedRecipes.has(normalizedKey)) {
+      groupedRecipes.set(normalizedKey, {
+        name: row.recipe_name,
+        ingredients: []
+      });
+    }
+
+    const ingredient = ingredientByName.get(normalizeRecipeKey(row.ingredient_name)) || null;
+    groupedRecipes.get(normalizedKey).ingredients.push({
+      ...row,
+      grams_in_portion: row.grams_in_portion ?? DEFAULT_GRAMS_IN_PORTION,
+      ingredient
+    });
+  }
+
+  return Array.from(groupedRecipes.values())
+    .map((recipe) => {
+      const taggedIngredients = recipe.ingredients
+        .slice()
+        .sort((left, right) => Number(right.grams_in_portion) - Number(left.grams_in_portion))
+        .map((entry) => ({
+          name: entry.ingredient_name,
+          grams_in_portion: entry.grams_in_portion,
+          sustainability_index: entry.ingredient?.sustainability_index ?? null
+        }));
+
+      const hasMissingIngredient = recipe.ingredients.some((entry) => !entry.ingredient);
+      if (hasMissingIngredient) {
+        return {
+          name: recipe.name,
+          sustainability_index: null,
+          tagged_ingredients: taggedIngredients,
+          created_at: timestamp,
+          updated_at: timestamp,
+          protein: null,
+          fiber: null,
+          vitamin_a: null,
+          vitamin_c: null,
+          vitamin_e: null,
+          calcium: null,
+          iron: null,
+          magnesium: null,
+          potassium: null,
+          saturated_fat: null,
+          added_sugar: null,
+          sodium: null,
+          nutrient_rich_food_index: null,
+          nutrition_composite_score: null,
+          freshwater_withdrawals: null,
+          stress_weighted_water_use: null,
+          acidifying_emissions: null,
+          eutrophying_emissions: null,
+          ghg_emissions: null,
+          land_use: null,
+          environmental_composite_score: null,
+          water_use_score: null,
+          nitrogen_use_score: null,
+          carbon_use_score: null,
+          land_use_score: null
+        };
+      }
+
+      const base = {
+        name: recipe.name,
+        tagged_ingredients: taggedIngredients,
+        created_at: timestamp,
+        updated_at: timestamp,
+        protein: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.protein, entry.grams_in_portion)
+          )
+        ),
+        fiber: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.fiber, entry.grams_in_portion)
+          )
+        ),
+        vitamin_a: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.vitamin_a, entry.grams_in_portion)
+          )
+        ),
+        vitamin_c: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.vitamin_c, entry.grams_in_portion)
+          )
+        ),
+        vitamin_e: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.vitamin_e, entry.grams_in_portion)
+          )
+        ),
+        calcium: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.calcium, entry.grams_in_portion)
+          )
+        ),
+        iron: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.iron, entry.grams_in_portion)
+          )
+        ),
+        magnesium: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.magnesium, entry.grams_in_portion)
+          )
+        ),
+        potassium: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.potassium, entry.grams_in_portion)
+          )
+        ),
+        saturated_fat: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.saturated_fat, entry.grams_in_portion)
+          )
+        ),
+        added_sugar: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.added_sugar, entry.grams_in_portion)
+          )
+        ),
+        sodium: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.sodium, entry.grams_in_portion)
+          )
+        ),
+        freshwater_withdrawals: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.freshwater_withdrawals)
+        ),
+        stress_weighted_water_use: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.stress_weighted_water_use)
+        ),
+        acidifying_emissions: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.acidifying_emissions)
+        ),
+        eutrophying_emissions: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.eutrophying_emissions)
+        ),
+        ghg_emissions: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.ghg_emissions)
+        ),
+        land_use: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.land_use)
+        )
+      };
+
+      const environmentalCompositeScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.environmental_composite_score)
+      );
+      const waterUseScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.water_use_score)
+      );
+      const nitrogenUseScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.nitrogen_use_score)
+      );
+      const carbonUseScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.carbon_use_score)
+      );
+      const landUseScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.land_use_score)
+      );
+      const nutritionCompositeScore = (() => {
+        const entries = recipe.ingredients
+          .filter(({ grams_in_portion }) => isFiniteNumber(grams_in_portion));
+        const totalWeight = entries.reduce((sum, e) => sum + Number(e.grams_in_portion), 0);
+        if (totalWeight === 0) return null;
+        const weightedSum = entries.reduce((sum, e) =>
+          isFiniteNumber(e.ingredient.nutrition_composite_score)
+            ? sum + Number(e.ingredient.nutrition_composite_score) * Number(e.grams_in_portion)
+            : sum,
+        0);
+        return roundMetric(weightedSum / totalWeight);
+      })();
+
+      return {
+        ...base,
+        nutrient_rich_food_index: null,
+        nutrition_composite_score: nutritionCompositeScore,
+        environmental_composite_score: environmentalCompositeScore,
+        water_use_score: waterUseScore,
+        nitrogen_use_score: nitrogenUseScore,
+        carbon_use_score: carbonUseScore,
+        land_use_score: landUseScore,
+        sustainability_index: calculateSustainabilityIndex(
+          nutritionCompositeScore,
+          environmentalCompositeScore
+        )
+      };
+    })
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+}
+
+function buildRecipeRows(items, recipeIngredients, timestamp) {
+  if (recipeIngredients.length > 0) {
+    return buildPortionSizedRecipeRows(items, recipeIngredients, timestamp);
+  }
+
+  return buildLegacyRecipeRows(items, timestamp);
+}
+
+>>>>>>> Stashed changes
 function recipeInsertSql(recipe) {
   return `
     INSERT INTO recipes (
