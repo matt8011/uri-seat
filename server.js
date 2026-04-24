@@ -301,6 +301,19 @@ function createRecipeIngredientsTableSql() {
   `;
 }
 
+async function ensureFaqSchema() {
+  await runSql(`
+    CREATE TABLE IF NOT EXISTS faq (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      question TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+}
+
 async function ensureFoodEntriesSchema() {
   const table = await getSql(`
     SELECT name
@@ -398,6 +411,7 @@ async function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
   `);
 
+  await ensureFaqSchema();
   await ensureFoodEntriesSchema();
   await ensureRecipesSchema();
   await ensureRecipeIngredientsSchema();
@@ -2672,6 +2686,73 @@ async function handleApi(req, res, pathname, searchParams) {
     }
     await repopulateRecipes();
     return sendJson(res, 200, { deleted: true });
+  }
+
+  if (pathname === '/api/faq' && method === 'GET') {
+    const rows = await allSql('SELECT id, question, answer, sort_order FROM faq ORDER BY sort_order ASC, id ASC;');
+    return sendJson(res, 200, rows);
+  }
+
+  if (pathname === '/api/admin/faq' && method === 'POST') {
+    if (!await requireAdmin(req, res)) return;
+    const body = await parseJsonBody(req);
+    const question = String(body.question || '').trim();
+    const answer = String(body.answer || '').trim();
+    if (!question || !answer) {
+      return sendJson(res, 400, { error: 'question and answer are required.' });
+    }
+    const now = new Date().toISOString();
+    const maxOrderRow = await getSql('SELECT MAX(sort_order) as m FROM faq;');
+    const nextOrder = (maxOrderRow?.m ?? -1) + 1;
+    await runSql(`
+      INSERT INTO faq (question, answer, sort_order, created_at, updated_at)
+      VALUES (${sqlValue(question)}, ${sqlValue(answer)}, ${sqlValue(nextOrder)}, ${sqlValue(now)}, ${sqlValue(now)});
+    `);
+    const created = await getSql('SELECT id, question, answer, sort_order FROM faq ORDER BY id DESC LIMIT 1;');
+    return sendJson(res, 200, created);
+  }
+
+  if (pathname.startsWith('/api/admin/faq/') && method === 'PUT') {
+    if (!await requireAdmin(req, res)) return;
+    const id = Number(pathname.split('/').pop());
+    if (!Number.isInteger(id)) return sendJson(res, 400, { error: 'Invalid faq id.' });
+    const body = await parseJsonBody(req);
+    const question = String(body.question || '').trim();
+    const answer = String(body.answer || '').trim();
+    if (!question || !answer) {
+      return sendJson(res, 400, { error: 'question and answer are required.' });
+    }
+    const now = new Date().toISOString();
+    await runSql(`
+      UPDATE faq SET question = ${sqlValue(question)}, answer = ${sqlValue(answer)}, updated_at = ${sqlValue(now)}
+      WHERE id = ${sqlValue(id)};
+    `);
+    const updated = await getSql(`SELECT id, question, answer, sort_order FROM faq WHERE id = ${sqlValue(id)} LIMIT 1;`);
+    if (!updated) return sendJson(res, 404, { error: 'FAQ item not found.' });
+    return sendJson(res, 200, updated);
+  }
+
+  if (pathname.startsWith('/api/admin/faq/') && method === 'DELETE') {
+    if (!await requireAdmin(req, res)) return;
+    const id = Number(pathname.split('/').pop());
+    if (!Number.isInteger(id)) return sendJson(res, 400, { error: 'Invalid faq id.' });
+    await runSql(`DELETE FROM faq WHERE id = ${sqlValue(id)};`);
+    return sendJson(res, 200, { deleted: true });
+  }
+
+  if (pathname === '/api/admin/faq/reorder' && method === 'PUT') {
+    if (!await requireAdmin(req, res)) return;
+    const body = await parseJsonBody(req);
+    const ids = body.ids;
+    if (!Array.isArray(ids) || ids.some((id) => !Number.isInteger(Number(id)))) {
+      return sendJson(res, 400, { error: 'ids must be an array of integers.' });
+    }
+    const now = new Date().toISOString();
+    const updates = ids.map((id, i) =>
+      `UPDATE faq SET sort_order = ${sqlValue(i)}, updated_at = ${sqlValue(now)} WHERE id = ${sqlValue(Number(id))};`
+    ).join('\n');
+    await runSql(updates);
+    return sendJson(res, 200, { reordered: true });
   }
 
   return sendJson(res, 404, { error: 'Not found.' });

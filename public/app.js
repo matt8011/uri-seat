@@ -1711,6 +1711,30 @@ async function bootstrap() {
   } catch (error) {
     searchSummaryEl.textContent = error.message;
   }
+
+  loadFaq();
+}
+
+async function loadFaq() {
+  const faqSection = document.getElementById('faqSection');
+  const faqList = document.getElementById('faqList');
+  if (!faqSection || !faqList) return;
+  try {
+    const items = await api('/api/faq');
+    if (!items || items.length === 0) {
+      faqSection.classList.add('hidden');
+      return;
+    }
+    faqList.innerHTML = items.map((item) => `
+      <div class="faq-item">
+        <p class="faq-question">${escapeHtml(item.question)}</p>
+        <p class="faq-answer">${escapeHtml(item.answer)}</p>
+      </div>
+    `).join('');
+    faqSection.classList.remove('hidden');
+  } catch {
+    faqSection.classList.add('hidden');
+  }
 }
 
 bootstrap();

@@ -3250,3 +3250,149 @@ input[readonly] {
 
 /* Remove button in meal agg rows */
 .meal-agg-remove-btn { appearance:none; border:0; background:rgba(169,61,48,0.1); color:var(--danger); font:inherit; font-size:1rem; font-weight:700; width:26px; height:26px; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background 120ms; }
+
+/* ─── FAQ public section ─────────────────────────────────── */
+.faq-section {
+  margin: 32px -20px 24px;
+}
+
+.faq-inner {
+  background: var(--surface);
+  border-radius: 28px;
+  padding: 48px 56px;
+  backdrop-filter: blur(18px);
+}
+
+.faq-heading {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.6rem, 3vw, 2.8rem);
+  color: var(--text);
+  margin: 8px 0 36px;
+}
+
+.faq-list {
+  display: grid;
+  gap: 32px;
+}
+
+.faq-item {
+  border-top: 1px solid rgba(0, 33, 71, 0.1);
+  padding-top: 28px;
+}
+
+.faq-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.faq-question {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.25rem, 2.5vw, 1.9rem);
+  color: var(--text);
+  margin: 0 0 12px;
+  line-height: 1.25;
+}
+
+.faq-answer {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 0;
+  max-width: 72ch;
+}
+
+/* ─── FAQ admin panel ────────────────────────────────────── */
+.faq-admin-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 10px 14px;
+  border: 1.5px solid rgba(0, 33, 71, 0.15);
+  border-radius: 10px;
+  background: var(--surface-strong);
+  color: var(--text);
+  transition: border-color 150ms;
+}
+
+.faq-admin-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.faq-admin-list {
+  margin-top: 24px;
+  display: grid;
+  gap: 10px;
+}
+
+.faq-admin-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1.5px solid rgba(0, 33, 71, 0.1);
+  border-radius: 14px;
+  cursor: grab;
+  transition: box-shadow 120ms, border-color 120ms;
+}
+
+.faq-admin-row.faq-drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+.faq-admin-drag {
+  color: var(--muted);
+  font-size: 1.1rem;
+  padding-top: 2px;
+  cursor: grab;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.faq-admin-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.faq-admin-q {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin: 0 0 4px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.faq-admin-a {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.faq-admin-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 760px) {
+  .faq-inner {
+    padding: 28px 20px;
+  }
+
+  .faq-admin-row {
+    flex-wrap: wrap;
+  }
+
+  .faq-admin-row-actions {
+    width: 100%;
+  }
+}
