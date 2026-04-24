@@ -89,6 +89,7 @@
             <button class="tab-btn is-active" data-tab="foods" role="tab" aria-selected="true">Foods</button>
             <button class="tab-btn" data-tab="nutrients" role="tab" aria-selected="false">Nutrients</button>
             <button class="tab-btn" data-tab="environmental" role="tab" aria-selected="false">Environmental</button>
+            <button class="tab-btn" data-tab="sustainability" role="tab" aria-selected="false">Sustainability Breakdown</button>
           </div>
         </div>
 
@@ -117,6 +118,20 @@
         <!-- Environmental tab -->
         <div id="tabEnv" class="tab-content hidden" role="tabpanel">
           <div id="envCircles4" class="env-circles-4"></div>
+        </div>
+
+        <!-- Sustainability Breakdown tab -->
+        <div id="tabSustainability" class="tab-content hidden" role="tabpanel">
+          <div class="foods-layout">
+            <div class="plate-col">
+              <div id="ssPieContainer" class="plate-pie-wrap"></div>
+              <div id="ssPieLegend" class="pie-legend plate-legend"></div>
+            </div>
+            <aside id="ssInfoPanel" class="plate-info-panel">
+              <h3 id="ssInfoTitle" class="plate-info-title">Select a slice</h3>
+              <div id="ssInfoContent" class="plate-info-content"></div>
+            </aside>
+          </div>
         </div>
         <div class="meal-plate-footer">
           <button class="button button-danger meal-clear-btn" type="button" id="clearPlateBtn">Clear Plate</button>

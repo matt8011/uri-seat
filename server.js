@@ -1276,7 +1276,9 @@ function buildLegacyRecipeRows(items, timestamp) {
     .map((recipe) => {
       const taggedIngredients = recipe.ingredients.map((ingredient) => ({
         name: ingredient.name,
-        sustainability_index: ingredient.sustainability_index
+        sustainability_index: ingredient.sustainability_index,
+        nutrition_composite_score: ingredient.nutrition_composite_score ?? null,
+        environmental_composite_score: ingredient.environmental_composite_score ?? null
       }));
       const nutritionCompositeScore = averageMetric(
         recipe.ingredients.map((ingredient) => ingredient.nutrition_composite_score)
@@ -1375,7 +1377,9 @@ function buildPortionSizedRecipeRows(items, recipeIngredients, timestamp) {
         .map((entry) => ({
           name: entry.ingredient_name,
           grams_in_portion: entry.grams_in_portion,
-          sustainability_index: entry.ingredient?.sustainability_index ?? null
+          sustainability_index: entry.ingredient?.sustainability_index ?? null,
+          nutrition_composite_score: entry.ingredient?.nutrition_composite_score ?? null,
+          environmental_composite_score: entry.ingredient?.environmental_composite_score ?? null
         }));
 
       const hasMissingIngredient = recipe.ingredients.some((entry) => !entry.ingredient);
@@ -1515,14 +1519,29 @@ function buildPortionSizedRecipeRows(items, recipeIngredients, timestamp) {
         recipe.ingredients.map((entry) => entry.ingredient.land_use_score)
       );
 
+      const nutritionCompositeScore = (() => {
+        const entries = recipe.ingredients
+          .filter(({ grams_in_portion }) => isFiniteNumber(grams_in_portion));
+        const totalWeight = entries.reduce((sum, e) => sum + Number(e.grams_in_portion), 0);
+        if (totalWeight === 0) return null;
+        const weightedSum = entries.reduce((sum, e) => {
+          if (!isFiniteNumber(e.ingredient.nutrient_rich_food_index)) return sum;
+          const portionNrfi = Number(e.ingredient.nutrient_rich_food_index) * Number(e.grams_in_portion) / 100;
+          return sum + calculateNutritionCompositeScore(portionNrfi) * Number(e.grams_in_portion);
+        }, 0);
+        return roundMetric(weightedSum / totalWeight);
+      })();
+
+      return {
+        ...base,
+        nutrient_rich_food_index: null,
+        nutrition_composite_score: nutritionCompositeScore,
         environmental_composite_score: environmentalCompositeScore,
         water_use_score: waterUseScore,
         nitrogen_use_score: nitrogenUseScore,
         carbon_use_score: carbonUseScore,
         land_use_score: landUseScore,
-        sustainability_index: calculateSustainabilityIndex(
-          environmentalCompositeScore
-        )
+        sustainability_index: calculateSustainabilityIndex(nutritionCompositeScore, environmentalCompositeScore)
       };
     })
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
