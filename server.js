@@ -1514,30 +1514,13 @@ function buildPortionSizedRecipeRows(items, recipeIngredients, timestamp) {
       const landUseScore = averageMetric(
         recipe.ingredients.map((entry) => entry.ingredient.land_use_score)
       );
-      const nutritionCompositeScore = (() => {
-        const entries = recipe.ingredients
-          .filter(({ grams_in_portion }) => isFiniteNumber(grams_in_portion));
-        const totalWeight = entries.reduce((sum, e) => sum + Number(e.grams_in_portion), 0);
-        if (totalWeight === 0) return null;
-        const weightedSum = entries.reduce((sum, e) => {
-          if (!isFiniteNumber(e.ingredient.nutrient_rich_food_index)) return sum;
-          const portionNrfi = Number(e.ingredient.nutrient_rich_food_index) * Number(e.grams_in_portion) / 100;
-          return sum + calculateNutritionCompositeScore(portionNrfi) * Number(e.grams_in_portion);
-        }, 0);
-        return roundMetric(weightedSum / totalWeight);
-      })();
 
-      return {
-        ...base,
-        nutrient_rich_food_index: null,
-        nutrition_composite_score: nutritionCompositeScore,
         environmental_composite_score: environmentalCompositeScore,
         water_use_score: waterUseScore,
         nitrogen_use_score: nitrogenUseScore,
         carbon_use_score: carbonUseScore,
         land_use_score: landUseScore,
         sustainability_index: calculateSustainabilityIndex(
-          nutritionCompositeScore,
           environmentalCompositeScore
         )
       };
