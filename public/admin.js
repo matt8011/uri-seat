@@ -186,15 +186,7 @@ const elements = {
   columnMappingDialog: document.getElementById('columnMappingDialog'),
   columnMappingList: document.getElementById('columnMappingList'),
   columnMappingConfirm: document.getElementById('columnMappingConfirm'),
-  columnMappingCancel: document.getElementById('columnMappingCancel'),
-  faqForm: document.getElementById('faqForm'),
-  faqEditId: document.getElementById('faqEditId'),
-  faqQuestion: document.getElementById('faqQuestion'),
-  faqAnswer: document.getElementById('faqAnswer'),
-  faqSaveButton: document.getElementById('faqSaveButton'),
-  faqCancelEdit: document.getElementById('faqCancelEdit'),
-  faqAdminMessage: document.getElementById('faqAdminMessage'),
-  faqAdminList: document.getElementById('faqAdminList')
+  columnMappingCancel: document.getElementById('columnMappingCancel')
 };
 
 function resolveColumnMapping(unmatchedHeaders) {
@@ -1077,138 +1069,6 @@ elements.clearRecipesButton.addEventListener('click', async () => {
   }
 });
 
-// ─── FAQ admin ────────────────────────────────────────────
-
-let faqItems = [];
-let faqDragSrcId = null;
-
-function setFaqMessage(msg, isError = false) {
-  elements.faqAdminMessage.textContent = msg;
-  elements.faqAdminMessage.className = 'admin-message' + (isError ? ' admin-message-error' : ' admin-message-success');
-}
-
-function renderFaqAdminList() {
-  const list = elements.faqAdminList;
-  if (faqItems.length === 0) {
-    list.innerHTML = '<p class="hint-copy">No FAQ items yet.</p>';
-    return;
-  }
-  list.innerHTML = faqItems.map((item) => `
-    <div class="faq-admin-row" draggable="true" data-id="${item.id}">
-      <span class="faq-admin-drag" aria-label="Drag to reorder">&#9776;</span>
-      <div class="faq-admin-row-body">
-        <p class="faq-admin-q">${escapeHtml(item.question)}</p>
-        <p class="faq-admin-a">${escapeHtml(item.answer)}</p>
-      </div>
-      <div class="faq-admin-row-actions">
-        <button class="button button-ghost button-sm" data-faq-edit="${item.id}" type="button">Edit</button>
-        <button class="button button-danger button-sm" data-faq-delete="${item.id}" type="button">Delete</button>
-      </div>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('[draggable]').forEach((row) => {
-    row.addEventListener('dragstart', (e) => {
-      faqDragSrcId = Number(row.dataset.id);
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    row.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      list.querySelectorAll('.faq-admin-row').forEach((r) => r.classList.remove('faq-drag-over'));
-      row.classList.add('faq-drag-over');
-    });
-    row.addEventListener('dragleave', () => row.classList.remove('faq-drag-over'));
-    row.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      row.classList.remove('faq-drag-over');
-      const targetId = Number(row.dataset.id);
-      if (faqDragSrcId === null || faqDragSrcId === targetId) return;
-      const srcIdx = faqItems.findIndex((i) => i.id === faqDragSrcId);
-      const tgtIdx = faqItems.findIndex((i) => i.id === targetId);
-      if (srcIdx === -1 || tgtIdx === -1) return;
-      const reordered = [...faqItems];
-      const [moved] = reordered.splice(srcIdx, 1);
-      reordered.splice(tgtIdx, 0, moved);
-      faqItems = reordered;
-      renderFaqAdminList();
-      try {
-        await api('/api/admin/faq/reorder', { method: 'PUT', body: { ids: faqItems.map((i) => i.id) } });
-      } catch (err) {
-        setFaqMessage(err.message, true);
-      }
-    });
-  });
-
-  list.querySelectorAll('[data-faq-edit]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = Number(btn.dataset.faqEdit);
-      const item = faqItems.find((i) => i.id === id);
-      if (!item) return;
-      elements.faqEditId.value = id;
-      elements.faqQuestion.value = item.question;
-      elements.faqAnswer.value = item.answer;
-      elements.faqSaveButton.textContent = 'Update FAQ item';
-      elements.faqCancelEdit.classList.remove('hidden');
-      elements.faqForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  });
-
-  list.querySelectorAll('[data-faq-delete]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const id = Number(btn.dataset.faqDelete);
-      if (!window.confirm('Delete this FAQ item?')) return;
-      try {
-        await api(`/api/admin/faq/${id}`, { method: 'DELETE' });
-        faqItems = faqItems.filter((i) => i.id !== id);
-        renderFaqAdminList();
-        setFaqMessage('FAQ item deleted.');
-      } catch (err) {
-        setFaqMessage(err.message, true);
-      }
-    });
-  });
-}
-
-function resetFaqForm() {
-  elements.faqEditId.value = '';
-  elements.faqQuestion.value = '';
-  elements.faqAnswer.value = '';
-  elements.faqSaveButton.textContent = 'Add FAQ item';
-  elements.faqCancelEdit.classList.add('hidden');
-  elements.faqAdminMessage.textContent = '';
-  elements.faqAdminMessage.className = 'admin-message';
-}
-
-async function loadFaqAdmin() {
-  faqItems = await api('/api/faq');
-  renderFaqAdminList();
-}
-
-elements.faqCancelEdit.addEventListener('click', resetFaqForm);
-
-elements.faqForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const question = elements.faqQuestion.value.trim();
-  const answer = elements.faqAnswer.value.trim();
-  const editId = elements.faqEditId.value;
-  try {
-    if (editId) {
-      const updated = await api(`/api/admin/faq/${editId}`, { method: 'PUT', body: { question, answer } });
-      faqItems = faqItems.map((i) => (i.id === updated.id ? updated : i));
-      setFaqMessage('FAQ item updated.');
-    } else {
-      const created = await api('/api/admin/faq', { method: 'POST', body: { question, answer } });
-      faqItems = [...faqItems, created];
-      setFaqMessage('FAQ item added.');
-    }
-    resetFaqForm();
-    renderFaqAdminList();
-  } catch (err) {
-    setFaqMessage(err.message, true);
-  }
-});
-
 async function bootstrap() {
   try {
     await loadConfig();
@@ -1216,7 +1076,6 @@ async function bootstrap() {
     if (state.session?.isAdmin) {
       await loadItems();
       await loadRecipes();
-      await loadFaqAdmin();
     }
 
     const poll = window.setInterval(() => {
