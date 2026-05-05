@@ -87,7 +87,8 @@
           <div id="mealPlatePills" class="meal-header-pills"></div>
           <div class="meal-plate-tabs" role="tablist">
             <button class="tab-btn is-active" data-tab="foods" role="tab" aria-selected="true">Foods</button>
-            <button class="tab-btn" data-tab="nutrients" role="tab" aria-selected="false">Nutrients</button>
+            <button class="tab-btn" data-tab="sustainability" role="tab" aria-selected="false">Sustainability Breakdown</button>
+            <button class="tab-btn" data-tab="nutrients" role="tab" aria-selected="false">Nutrition</button>
             <button class="tab-btn" data-tab="environmental" role="tab" aria-selected="false">Environmental</button>
             <button class="tab-btn" data-tab="sustainability" role="tab" aria-selected="false">Sustainability Breakdown</button>
           </div>
@@ -99,6 +100,7 @@
             <div class="plate-col">
               <div id="platePieContainer" class="plate-pie-wrap"></div>
               <div id="platePieLegend" class="pie-legend plate-legend"></div>
+              <p class="pie-footnote">*click on a slice to view details</p>
             </div>
             <aside id="plateInfoPanel" class="plate-info-panel">
               <h3 id="plateInfoTitle" class="plate-info-title">Select a slice</h3>
@@ -126,6 +128,7 @@
             <div class="plate-col">
               <div id="ssPieContainer" class="plate-pie-wrap"></div>
               <div id="ssPieLegend" class="pie-legend plate-legend"></div>
+              <p class="pie-footnote">*click on a slice to view details</p>
             </div>
             <aside id="ssInfoPanel" class="plate-info-panel">
               <h3 id="ssInfoTitle" class="plate-info-title">Select a slice</h3>
@@ -153,6 +156,17 @@
         <p id="searchSummary" class="search-summary catalog-summary">Loading catalog...</p>
         <div id="resultsGrid" class="results-grid results-grid-wide"></div>
         <p id="emptyState" class="empty-state hidden">No recipes matched that search.</p>
+      </section>
+      <!-- FAQ -->
+      <section class="faq-section">
+        <div class="faq-entries" id="faqEntries">
+          <div class="faq-header">
+            <p class="panel-kicker">Learn More</p>
+            <h2>Frequently Asked Questions</h2>
+          </div>
+          <div id="faqList"></div>
+        </div>
+
       </section>
     </main>
   </div>

@@ -146,6 +146,15 @@ const elements = {
   authHint: document.getElementById('authHint'),
   adminWorkspace: document.getElementById('adminWorkspace'),
   dangerZonePanel: document.getElementById('dangerZonePanel'),
+  faqPanel: document.getElementById('faqPanel'),
+  faqForm: document.getElementById('faqForm'),
+  faqEditId: document.getElementById('faqEditId'),
+  faqQuestion: document.getElementById('faqQuestion'),
+  faqAnswer: document.getElementById('faqAnswer'),
+  faqSaveBtn: document.getElementById('faqSaveBtn'),
+  faqCancelBtn: document.getElementById('faqCancelBtn'),
+  faqFormMessage: document.getElementById('faqFormMessage'),
+  faqAdminList: document.getElementById('faqAdminList'),
   entryForm: document.getElementById('entryForm'),
   entryId: document.getElementById('entryId'),
   cancelEdit: document.getElementById('cancelEdit'),
@@ -155,6 +164,8 @@ const elements = {
   ingredientCount: document.getElementById('ingredientCount'),
   ingredientSearch: document.getElementById('ingredientSearch'),
   incompleteFilter: document.getElementById('incompleteFilter'),
+  backfillPortionsButton: document.getElementById('backfillPortionsButton'),
+  clearPortionDefaultsButton: document.getElementById('clearPortionDefaultsButton'),
   ingredientPrevBtn: document.getElementById('ingredientPrevBtn'),
   ingredientNextBtn: document.getElementById('ingredientNextBtn'),
   ingredientPageInfo: document.getElementById('ingredientPageInfo'),
@@ -320,6 +331,7 @@ function renderAuth() {
   elements.adminNavLabel.textContent = user ? 'Admin' : 'Login';
   elements.signOutButton.classList.toggle('hidden', !user);
   elements.adminWorkspace.classList.toggle('hidden', !isAdmin);
+  elements.faqPanel.classList.toggle('hidden', !isAdmin);
   elements.dangerZonePanel.classList.toggle('hidden', !isSuperAdmin);
 
   if (!state.config?.googleAuthEnabled) {
@@ -493,6 +505,11 @@ function populateForm(item) {
   elements.entryId.value = item.id;
   document.getElementById('name').value = item.name;
   document.getElementById('tagged_recipes').value = (item.tagged_recipes || []).join(', ');
+  const dgInput = document.getElementById('default_grams_in_portion');
+  dgInput.value = item.default_grams_in_portion ?? '';
+  dgInput.placeholder = item.avg_grams_in_portion != null
+    ? `avg portion: ${Number(item.avg_grams_in_portion).toFixed(1)}`
+    : 'avg portion: —';
 
   for (const field of editableNumberFields) {
     document.getElementById(field).value = item[field] ?? '';
@@ -523,7 +540,8 @@ function clearForm() {
 function buildPayload() {
   const payload = {
     name: document.getElementById('name').value.trim(),
-    tagged_recipes: parseRecipes(document.getElementById('tagged_recipes').value)
+    tagged_recipes: parseRecipes(document.getElementById('tagged_recipes').value),
+    default_grams_in_portion: getNumberValue('default_grams_in_portion')
   };
 
   for (const field of editableNumberFields) {
@@ -763,6 +781,46 @@ elements.incompleteFilter.addEventListener('change', () => {
   renderAdminTable();
 });
 
+// Backfill portion defaults with avg
+elements.backfillPortionsButton.addEventListener('click', async () => {
+  if (!window.confirm('Set default_grams_in_portion to the avg portion size for every ingredient that has recipe data? This overwrites any existing manual fallback values.')) return;
+  try {
+    elements.backfillPortionsButton.disabled = true;
+    elements.backfillPortionsButton.textContent = 'Loading...';
+    const result = await api('/api/admin/backfill-portion-defaults', { method: 'POST' });
+    await loadItems();
+    elements.backfillPortionsButton.textContent = `Done — ${result.updated} updated`;
+    setTimeout(() => {
+      elements.backfillPortionsButton.textContent = 'Load all portion fallbacks with avg';
+    }, 3000);
+  } catch (error) {
+    elements.backfillPortionsButton.textContent = 'Load all portion fallbacks with avg';
+    setAdminMessage(error.message, true);
+  } finally {
+    elements.backfillPortionsButton.disabled = false;
+  }
+});
+
+// Clear all portion fallbacks
+elements.clearPortionDefaultsButton.addEventListener('click', async () => {
+  if (!window.confirm('Clear default_grams_in_portion for all ingredients?')) return;
+  try {
+    elements.clearPortionDefaultsButton.disabled = true;
+    elements.clearPortionDefaultsButton.textContent = 'Clearing...';
+    await api('/api/admin/clear-portion-defaults', { method: 'POST' });
+    await loadItems();
+    elements.clearPortionDefaultsButton.textContent = 'Cleared';
+    setTimeout(() => {
+      elements.clearPortionDefaultsButton.textContent = 'Clear portion fallbacks';
+    }, 3000);
+  } catch (error) {
+    elements.clearPortionDefaultsButton.textContent = 'Clear portion fallbacks';
+    setAdminMessage(error.message, true);
+  } finally {
+    elements.clearPortionDefaultsButton.disabled = false;
+  }
+});
+
 // Ingredient pagination
 elements.ingredientPrevBtn.addEventListener('click', () => {
   if (pagination.ingredientPage > 1) {
@@ -899,6 +957,7 @@ elements.recipeImportButton.addEventListener('click', async () => {
     });
 
     await loadRecipes();
+    await loadItems();
     const parts = [];
     if (result.inserted > 0) parts.push(`${result.inserted} inserted`);
     if (result.updated > 0) parts.push(`${result.updated} updated`);
@@ -1069,6 +1128,7 @@ elements.clearRecipesButton.addEventListener('click', async () => {
   }
 });
 
+
 async function bootstrap() {
   try {
     await loadConfig();
@@ -1076,6 +1136,7 @@ async function bootstrap() {
     if (state.session?.isAdmin) {
       await loadItems();
       await loadRecipes();
+      await loadFaqs();
     }
 
     const poll = window.setInterval(() => {
@@ -1090,5 +1151,114 @@ async function bootstrap() {
     elements.authHint.textContent = error.message;
   }
 }
+
+// ─── FAQ admin ────────────────────────────────────────────
+let faqDragId = null;
+
+async function loadFaqs() {
+  const { faqs } = await api('/api/faqs');
+  state.faqs = faqs;
+  renderFaqList();
+}
+
+function renderFaqList() {
+  const faqs = state.faqs || [];
+  if (!faqs.length) {
+    elements.faqAdminList.innerHTML = '<p class="hint-copy">No FAQs yet. Add one above.</p>';
+    return;
+  }
+  elements.faqAdminList.innerHTML = faqs.map((faq) => `
+    <div class="faq-admin-row" draggable="true" data-faq-id="${faq.id}">
+      <span class="faq-admin-drag" title="Drag to reorder">&#9776;</span>
+      <div class="faq-admin-row-body">
+        <p class="faq-admin-q">Q: ${escapeHtml(faq.question)}</p>
+        <p class="faq-admin-a">A: ${escapeHtml(faq.answer)}</p>
+      </div>
+      <div class="faq-admin-row-actions">
+        <button class="button button-secondary button-sm" type="button" data-faq-edit="${faq.id}">Edit</button>
+        <button class="button button-danger button-sm" type="button" data-faq-delete="${faq.id}">Delete</button>
+      </div>
+    </div>`).join('');
+
+  for (const row of elements.faqAdminList.querySelectorAll('[data-faq-id]')) {
+    row.addEventListener('dragstart', (e) => {
+      faqDragId = Number(row.dataset.faqId);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      elements.faqAdminList.querySelectorAll('.faq-drag-over').forEach((el) => el.classList.remove('faq-drag-over'));
+      row.classList.add('faq-drag-over');
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('faq-drag-over'));
+    row.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      row.classList.remove('faq-drag-over');
+      const dropId = Number(row.dataset.faqId);
+      if (faqDragId === null || faqDragId === dropId) return;
+      const ids = state.faqs.map((f) => f.id);
+      const from = ids.indexOf(faqDragId);
+      const to = ids.indexOf(dropId);
+      ids.splice(from, 1);
+      ids.splice(to, 0, faqDragId);
+      await api('/api/faqs/reorder', { method: 'POST', body: JSON.stringify({ order: ids }) });
+      await loadFaqs();
+    });
+  }
+}
+
+function faqSetEdit(faq) {
+  elements.faqEditId.value = faq.id;
+  elements.faqQuestion.value = faq.question;
+  elements.faqAnswer.value = faq.answer;
+  elements.faqSaveBtn.textContent = 'Save Changes';
+  elements.faqCancelBtn.classList.remove('hidden');
+  elements.faqQuestion.focus();
+}
+
+function faqClearForm() {
+  elements.faqEditId.value = '';
+  elements.faqQuestion.value = '';
+  elements.faqAnswer.value = '';
+  elements.faqSaveBtn.textContent = 'Add FAQ';
+  elements.faqCancelBtn.classList.add('hidden');
+  elements.faqFormMessage.textContent = '';
+}
+
+elements.faqCancelBtn.addEventListener('click', faqClearForm);
+
+elements.faqForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = elements.faqEditId.value;
+  const question = elements.faqQuestion.value.trim();
+  const answer = elements.faqAnswer.value.trim();
+  try {
+    if (id) {
+      await api(`/api/faqs/${id}`, { method: 'PUT', body: JSON.stringify({ question, answer }) });
+    } else {
+      await api('/api/faqs', { method: 'POST', body: JSON.stringify({ question, answer }) });
+    }
+    faqClearForm();
+    await loadFaqs();
+  } catch (err) {
+    elements.faqFormMessage.textContent = err.message || 'Error saving FAQ.';
+  }
+});
+
+elements.faqAdminList.addEventListener('click', async (e) => {
+  const editBtn = e.target.closest('[data-faq-edit]');
+  if (editBtn) {
+    const faq = state.faqs.find((f) => f.id === Number(editBtn.dataset.faqEdit));
+    if (faq) faqSetEdit(faq);
+    return;
+  }
+  const deleteBtn = e.target.closest('[data-faq-delete]');
+  if (deleteBtn) {
+    const id = Number(deleteBtn.dataset.faqDelete);
+    if (!confirm('Delete this FAQ?')) return;
+    await api(`/api/faqs/${id}`, { method: 'DELETE' });
+    await loadFaqs();
+  }
+});
 
 bootstrap();

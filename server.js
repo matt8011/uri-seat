@@ -51,7 +51,8 @@ const FOOD_COLUMNS = [
   'eutrophying_emissions',
   'ghg_emissions',
   'land_use',
-  'environmental_composite_score'
+  'environmental_composite_score',
+  'default_grams_in_portion'
 ];
 const RECIPE_COLUMNS = [
   'id',
@@ -236,7 +237,8 @@ function createFoodEntriesTableSql() {
       eutrophying_emissions REAL,
       ghg_emissions REAL,
       land_use REAL,
-      environmental_composite_score REAL
+      environmental_composite_score REAL,
+      default_grams_in_portion REAL
     );
 
     CREATE INDEX IF NOT EXISTS idx_food_entries_name ON food_entries(name);
@@ -310,6 +312,13 @@ async function ensureFoodEntriesSchema() {
   `);
 
   if (table) {
+    // Migrate: add new columns before the strict schema check so existing data is preserved
+    const existingCols = await allSql('PRAGMA table_info(food_entries);');
+    const existingColNames = new Set(existingCols.map((c) => String(c.name)));
+    if (!existingColNames.has('default_grams_in_portion')) {
+      await runSql('ALTER TABLE food_entries ADD COLUMN default_grams_in_portion REAL;');
+    }
+
     const columns = await allSql('PRAGMA table_info(food_entries);');
     const actualColumns = columns.map((column) => String(column.name));
     const hasExpectedColumns =
@@ -401,9 +410,24 @@ async function initializeDatabase() {
   await ensureFoodEntriesSchema();
   await ensureRecipesSchema();
   await ensureRecipeIngredientsSchema();
+  await ensureFaqsSchema();
   await backfillCalculatedNutritionScores();
   await repopulateRecipes();
 }
+
+async function ensureFaqsSchema() {
+  await runSql(`
+    CREATE TABLE IF NOT EXISTS faqs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      question TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+}
+
 
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -678,6 +702,34 @@ function calculateNutritionCompositeScore(index) {
   return 5;
 }
 
+// Quintile bounds from Jung et al. (2024) Nutrition Journal Table 1.
+// Scored against per-kg values. Static — never derive from DB.
+const ENV_QUINTILES = {
+  freshwater_withdrawals:    { bounds: [161.4, 263.7, 377.1, 549.9] },
+  stress_weighted_water_use: { bounds: [5601,  9079,  12806, 18475] },
+  acidifying_emissions:      { bounds: [9.3,   15.4,  22.6,  34.4]  },
+  eutrophying_emissions:     { bounds: [6.1,   10.2,  16.3,  28.0]  },
+  ghg_emissions:             { bounds: [1.4,   2.2,   3.4,   5.8]   },
+  land_use:                  { bounds: [2.1,   3.7,   5.9,   13.0]  }
+};
+
+function scoreEnvIndicator(indicator, rawValue) {
+  const [b0, b1, b2, b3] = ENV_QUINTILES[indicator].bounds;
+  if (rawValue <= b0) return 5;
+  if (rawValue <= b1) return 4;
+  if (rawValue <= b2) return 3;
+  if (rawValue <= b3) return 2;
+  return 1;
+}
+
+function applyEnvDimensionWeights(ghg, fw, sww, acid, eutro, land) {
+  const dimCarbon   = ghg;
+  const dimWater    = (fw + sww) / 2;
+  const dimNitrogen = (acid + eutro) / 2;
+  const dimLand     = land;
+  return roundMetric((dimCarbon + dimWater + dimNitrogen + dimLand) / 4);
+}
+
 function calculateEnvironmentalCompositeScore(item) {
   const values = {
     freshwater_withdrawals: item.freshwater_withdrawals,
@@ -701,16 +753,46 @@ function calculateEnvironmentalCompositeScore(item) {
     scoreLandUse
   } = calculateEnvironmentalIndicatorScores(values);
 
-  return roundMetric(
-    (
-      scoreFreshwaterWithdrawals +
-      scoreStressWeightedWaterUse +
-      scoreAcidifyingEmissions +
-      scoreEutrophyingEmissions +
-      scoreGhgEmissions +
-      scoreLandUse
-    ) / 6
+  return applyEnvDimensionWeights(
+    scoreGhgEmissions,
+    scoreFreshwaterWithdrawals,
+    scoreStressWeightedWaterUse,
+    scoreAcidifyingEmissions,
+    scoreEutrophyingEmissions,
+    scoreLandUse
   );
+}
+
+function calculateRecipeEnvCompositeScore(ingredients) {
+  const valid = ingredients.filter(({ grams_in_portion, ingredient }) =>
+    isFiniteNumber(grams_in_portion) &&
+    ingredient &&
+    isFiniteNumber(ingredient.freshwater_withdrawals) &&
+    isFiniteNumber(ingredient.stress_weighted_water_use) &&
+    isFiniteNumber(ingredient.acidifying_emissions) &&
+    isFiniteNumber(ingredient.eutrophying_emissions) &&
+    isFiniteNumber(ingredient.ghg_emissions) &&
+    isFiniteNumber(ingredient.land_use)
+  );
+  if (valid.length === 0) return null;
+  const totalGrams = valid.reduce((sum, e) => sum + Number(e.grams_in_portion), 0);
+  if (totalGrams === 0) return null;
+
+  const weightedSum = valid.reduce((sum, entry) => {
+    const g = Number(entry.grams_in_portion);
+    const ing = entry.ingredient;
+    const envComposite_i = applyEnvDimensionWeights(
+      scoreEnvIndicator('ghg_emissions',             Number(ing.ghg_emissions)),
+      scoreEnvIndicator('freshwater_withdrawals',    Number(ing.freshwater_withdrawals)),
+      scoreEnvIndicator('stress_weighted_water_use', Number(ing.stress_weighted_water_use)),
+      scoreEnvIndicator('acidifying_emissions',      Number(ing.acidifying_emissions)),
+      scoreEnvIndicator('eutrophying_emissions',     Number(ing.eutrophying_emissions)),
+      scoreEnvIndicator('land_use',                  Number(ing.land_use))
+    );
+    return sum + envComposite_i * g;
+  }, 0);
+
+  return roundMetric(weightedSum / totalGrams);
 }
 
 function calculateEnvironmentalIndicatorScores(item) {
@@ -894,6 +976,10 @@ function deserializeRow(row) {
       row.environmental_composite_score === null
         ? null
         : Number(row.environmental_composite_score),
+    default_grams_in_portion:
+      row.default_grams_in_portion === null || row.default_grams_in_portion === undefined
+        ? null
+        : Number(row.default_grams_in_portion),
     ...calculateEnvironmentalFactorScores({
       freshwater_withdrawals:
         row.freshwater_withdrawals === null ? null : Number(row.freshwater_withdrawals),
@@ -1020,7 +1106,8 @@ function validateFoodPayload(body) {
       eutrophying_emissions: normalizedNumbers.eutrophying_emissions,
       ghg_emissions: normalizedNumbers.ghg_emissions,
       land_use: normalizedNumbers.land_use,
-      environmental_composite_score: null
+      environmental_composite_score: null,
+      default_grams_in_portion: normalizeNumber(body.default_grams_in_portion)
     })
   };
 }
@@ -1071,7 +1158,8 @@ function foodInsertSql(item, timestamp, explicitCreatedAt = null) {
       eutrophying_emissions,
       ghg_emissions,
       land_use,
-      environmental_composite_score
+      environmental_composite_score,
+      default_grams_in_portion
     ) VALUES (
       ${sqlValue(item.name)},
       ${sqlValue(item.sustainability_index)},
@@ -1098,7 +1186,8 @@ function foodInsertSql(item, timestamp, explicitCreatedAt = null) {
       ${sqlValue(item.eutrophying_emissions)},
       ${sqlValue(item.ghg_emissions)},
       ${sqlValue(item.land_use)},
-      ${sqlValue(item.environmental_composite_score)}
+      ${sqlValue(item.environmental_composite_score)},
+      ${sqlValue(item.default_grams_in_portion ?? null)}
     );
   `;
 }
@@ -1130,7 +1219,8 @@ function foodUpdateSql(id, item, timestamp) {
         eutrophying_emissions = ${sqlValue(item.eutrophying_emissions)},
         ghg_emissions = ${sqlValue(item.ghg_emissions)},
         land_use = ${sqlValue(item.land_use)},
-        environmental_composite_score = ${sqlValue(item.environmental_composite_score)}
+        environmental_composite_score = ${sqlValue(item.environmental_composite_score)},
+        default_grams_in_portion = ${sqlValue(item.default_grams_in_portion ?? null)}
     WHERE id = ${sqlValue(id)};
   `;
 }
@@ -1164,6 +1254,15 @@ async function queryItems(search = '') {
 
   const rows = await allSql(sql);
   return rows.map(deserializeRow);
+}
+
+async function queryAvgGramsPerIngredient() {
+  const rows = await allSql(`
+    SELECT lower(ingredient_name) AS key, AVG(grams_in_portion) AS avg_grams
+    FROM recipe_ingredients
+    GROUP BY lower(ingredient_name);
+  `);
+  return new Map(rows.map((r) => [r.key, Number(r.avg_grams)]));
 }
 
 async function getItemById(id) {
@@ -1364,7 +1463,7 @@ function buildPortionSizedRecipeRows(items, recipeIngredients, timestamp) {
     const ingredient = ingredientByName.get(normalizeRecipeKey(row.ingredient_name)) || null;
     groupedRecipes.get(normalizedKey).ingredients.push({
       ...row,
-      grams_in_portion: row.grams_in_portion ?? DEFAULT_GRAMS_IN_PORTION,
+      grams_in_portion: row.grams_in_portion ?? ingredient?.default_grams_in_portion ?? DEFAULT_GRAMS_IN_PORTION,
       ingredient
     });
   }
@@ -1503,9 +1602,7 @@ function buildPortionSizedRecipeRows(items, recipeIngredients, timestamp) {
         )
       };
 
-      const environmentalCompositeScore = averageMetric(
-        recipe.ingredients.map((entry) => entry.ingredient.environmental_composite_score)
-      );
+      const environmentalCompositeScore = calculateRecipeEnvCompositeScore(recipe.ingredients);
       const waterUseScore = averageMetric(
         recipe.ingredients.map((entry) => entry.ingredient.water_use_score)
       );
@@ -2519,8 +2616,13 @@ async function handleApi(req, res, pathname, searchParams) {
   if (pathname === '/api/items' && method === 'GET') {
     const search = searchParams.get('q') || '';
     const items = await queryItems(search);
+    const avgGramsMap = await queryAvgGramsPerIngredient();
+    const itemsWithAvg = items.map((item) => ({
+      ...item,
+      avg_grams_in_portion: avgGramsMap.get(item.name.toLowerCase()) ?? null
+    }));
     return sendJson(res, 200, {
-      items,
+      items: itemsWithAvg,
       query: search,
       recipeScores: await queryRecipeScoresByNames(items.flatMap((item) => item.tagged_recipes || []))
     });
@@ -2681,6 +2783,48 @@ async function handleApi(req, res, pathname, searchParams) {
     }
   }
 
+  if (pathname === '/api/admin/backfill-portion-defaults' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      await runSql(`
+        UPDATE food_entries
+        SET default_grams_in_portion = (
+          SELECT AVG(ri.grams_in_portion)
+          FROM recipe_ingredients ri
+          WHERE lower(ri.ingredient_name) = lower(food_entries.name)
+        )
+        WHERE (
+          SELECT AVG(ri.grams_in_portion)
+          FROM recipe_ingredients ri
+          WHERE lower(ri.ingredient_name) = lower(food_entries.name)
+        ) IS NOT NULL;
+      `);
+      const updated = await getSql(`
+        SELECT COUNT(*) AS cnt FROM food_entries
+        WHERE default_grams_in_portion IS NOT NULL;
+      `);
+      return sendJson(res, 200, { updated: updated?.cnt ?? 0 });
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Backfill failed.' });
+    }
+  }
+
+  if (pathname === '/api/admin/clear-portion-defaults' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      await runSql(`UPDATE food_entries SET default_grams_in_portion = NULL;`);
+      return sendJson(res, 200, { cleared: true });
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Clear failed.' });
+    }
+  }
+
   if (pathname === '/api/admin/export' && method === 'GET') {
     if (!await requireAdmin(req, res)) {
       return;
@@ -2779,6 +2923,65 @@ async function handleApi(req, res, pathname, searchParams) {
     }
     await repopulateRecipes();
     return sendJson(res, 200, { deleted: true });
+  }
+
+  if (pathname === '/api/faqs' && method === 'GET') {
+    const rows = await allSql('SELECT * FROM faqs ORDER BY sort_order ASC, id ASC;');
+    return sendJson(res, 200, { faqs: rows.map((r) => ({
+      id: Number(r.id),
+      question: r.question,
+      answer: r.answer,
+      sort_order: Number(r.sort_order),
+      created_at: r.created_at,
+      updated_at: r.updated_at
+    })) });
+  }
+
+  if (pathname === '/api/faqs' && method === 'POST') {
+    if (!await requireAdmin(req, res)) return;
+    const body = await parseJsonBody(req);
+    const question = String(body.question || '').trim();
+    const answer = String(body.answer || '').trim();
+    if (!question || !answer) return sendJson(res, 400, { error: 'Question and answer are required.' });
+    const now = new Date().toISOString();
+    const maxRow = await getSql('SELECT MAX(sort_order) as m FROM faqs;');
+    const sortOrder = maxRow && maxRow.m !== null ? Number(maxRow.m) + 1 : 0;
+    await runSql(`INSERT INTO faqs (question, answer, sort_order, created_at, updated_at) VALUES (${sqlValue(question)}, ${sqlValue(answer)}, ${sqlValue(sortOrder)}, ${sqlValue(now)}, ${sqlValue(now)});`);
+    const idRow = await getSql('SELECT MAX(id) as id FROM faqs;');
+    return sendJson(res, 201, { id: Number(idRow.id), question, answer, sort_order: sortOrder });
+  }
+
+  if (pathname.startsWith('/api/faqs/') && method === 'PUT') {
+    if (!await requireAdmin(req, res)) return;
+    const id = Number(pathname.split('/').pop());
+    if (!Number.isInteger(id)) return sendJson(res, 400, { error: 'Invalid id.' });
+    const body = await parseJsonBody(req);
+    const question = String(body.question || '').trim();
+    const answer = String(body.answer || '').trim();
+    if (!question || !answer) return sendJson(res, 400, { error: 'Question and answer are required.' });
+    const now = new Date().toISOString();
+    await runSql(`UPDATE faqs SET question=${sqlValue(question)}, answer=${sqlValue(answer)}, updated_at=${sqlValue(now)} WHERE id=${sqlValue(id)};`);
+    return sendJson(res, 200, { id, question, answer });
+  }
+
+  if (pathname.startsWith('/api/faqs/') && method === 'DELETE') {
+    if (!await requireAdmin(req, res)) return;
+    const id = Number(pathname.split('/').pop());
+    if (!Number.isInteger(id)) return sendJson(res, 400, { error: 'Invalid id.' });
+    await runSql(`DELETE FROM faqs WHERE id=${sqlValue(id)};`);
+    return sendJson(res, 200, { deleted: true });
+  }
+
+  if (pathname === '/api/faqs/reorder' && method === 'POST') {
+    if (!await requireAdmin(req, res)) return;
+    const body = await parseJsonBody(req);
+    const order = body.order;
+    if (!Array.isArray(order)) return sendJson(res, 400, { error: 'order must be an array of ids.' });
+    const now = new Date().toISOString();
+    for (let i = 0; i < order.length; i++) {
+      await runSql(`UPDATE faqs SET sort_order=${sqlValue(i)}, updated_at=${sqlValue(now)} WHERE id=${sqlValue(Number(order[i]))};`);
+    }
+    return sendJson(res, 200, { ok: true });
   }
 
   return sendJson(res, 404, { error: 'Not found.' });

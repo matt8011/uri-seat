@@ -74,6 +74,10 @@
                   <span>Tagged recipes</span>
                   <input id="tagged_recipes" type="text" placeholder="Optional comma-separated recipe tags">
                 </label>
+                <label>
+                  <span>Default grams in portion (fallback)</span>
+                  <input id="default_grams_in_portion" type="number" step="0.1" min="0.1" placeholder="avg portion: —">
+                </label>
               </div>
             </section>
 
@@ -232,6 +236,8 @@
               <input id="incompleteFilter" type="checkbox">
               <span>Show incomplete only</span>
             </label>
+            <button id="backfillPortionsButton" class="button button-ghost button-sm" type="button">Load all portion fallbacks with avg</button>
+            <button id="clearPortionDefaultsButton" class="button button-ghost button-sm" type="button">Clear portion fallbacks</button>
           </div>
           <div class="admin-table-wrap">
             <table class="admin-table">
@@ -284,6 +290,35 @@
             <span id="recipePageInfo" class="pagination-info">Page 1 of 1</span>
             <button id="recipeNextBtn" class="button button-ghost button-sm" type="button" disabled>Next &#8594;</button>
           </div>
+        </section>
+
+        <section id="faqPanel" class="panel import-panel hidden">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Manage</p>
+              <h2>FAQ</h2>
+            </div>
+            <p class="panel-meta">Create, edit, reorder, and delete FAQ entries</p>
+          </div>
+
+          <form id="faqForm" class="faq-admin-form">
+            <input type="hidden" id="faqEditId">
+            <div class="form-row">
+              <label class="form-label" for="faqQuestion">Q:</label>
+              <textarea id="faqQuestion" class="form-input" rows="2" placeholder="Question…" required></textarea>
+            </div>
+            <div class="form-row">
+              <label class="form-label" for="faqAnswer">A:</label>
+              <textarea id="faqAnswer" class="form-input" rows="4" placeholder="Answer…" required></textarea>
+            </div>
+            <div class="import-controls">
+              <button id="faqSaveBtn" class="button button-primary" type="submit">Add FAQ</button>
+              <button id="faqCancelBtn" class="button button-ghost hidden" type="button">Cancel</button>
+            </div>
+            <div id="faqFormMessage" class="admin-message"></div>
+          </form>
+
+          <div id="faqAdminList" class="faq-admin-list"></div>
         </section>
 
         <section id="dangerZonePanel" class="panel import-panel hidden">
