@@ -18,8 +18,15 @@ Admin-only endpoints:
 
 - `POST /api/items`
 - `PUT /api/items/:id`
-- `DELETE /api/items/:id`
 - `POST /api/items/import`
+
+Super-admin-only endpoints:
+
+- `DELETE /api/items/:id`
+- `DELETE /api/recipes/:id`
+- `POST /api/admin/clear-database`
+- `POST /api/admin/clear-ingredients`
+- `POST /api/admin/clear-recipes`
 
 ## Endpoints
 
@@ -33,7 +40,8 @@ Example response:
 {
   "googleClientId": "...",
   "googleAuthEnabled": true,
-  "adminEmailsConfigured": true
+  "adminEmailsConfigured": true,
+  "superAdminEmailsConfigured": true
 }
 ```
 
@@ -50,7 +58,8 @@ Example response:
     "email": "admin@example.edu",
     "name": "Admin User",
     "picture": "https://...",
-    "isAdmin": true
+    "isAdmin": true,
+    "isSuperAdmin": true
   }
 }
 ```
@@ -127,6 +136,7 @@ Notes:
 - `environmental_composite_score` is calculated automatically by scoring each environmental factor from `1` to `5` using threshold cutoffs, then averaging the six scores
 - `water_use_score`, `nitrogen_use_score`, `carbon_use_score`, and `land_use_score` are calculated automatically from those same environmental factor scores
 - `sustainability_index` is calculated automatically as `nutrition_composite_score + environmental_composite_score`
+- `tagged_recipes` is now optional metadata; recipe scoring can come from the dedicated recipe portions import instead
 
 ### `PUT /api/items/:id`
 
@@ -194,6 +204,41 @@ Accepted aliases:
 
 - `food_item_name` for `name`
 - `recipe_tags` for `tagged_recipes`
+
+### `POST /api/recipes/import`
+
+Imports recipe portion rows from CSV.
+
+Admin only.
+
+Supported request styles:
+
+1. `application/json`
+
+```json
+{
+  "csvText": "recipe_name,ingredient_name,grams_in_portion\nChicken Salad,Mayonnaise,8.9625",
+  "replaceExisting": true
+}
+```
+
+2. Raw `text/csv`
+
+Send the CSV body directly. If you want to replace all existing recipe rows in this mode, include header:
+
+`X-Replace-Existing: true`
+
+Expected CSV headers:
+
+- `recipe_name`
+- `ingredient_name`
+- `grams_in_portion`
+
+For each imported row, the app calculates the ingredient's recipe contribution as:
+
+`(per_100g_metric * grams_in_portion) / 100`
+
+When recipe portion rows exist, `POST /api/recipes/repopulate` rebuilds recipe totals and scores from those weighted ingredient contributions instead of using the older ingredient-tag averaging model.
 
 ## Current Food Entry Shape
 

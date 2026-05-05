@@ -11,56 +11,62 @@ const MEAL_STORAGE_KEY = 'seat-my-meal-v1';
 
 // ─── Nutrition definitions ────────────────────────────────
 const NUTRIENTS = [
-  { key: 'protein',       label: 'Protein',     color: '#2a7abf', positive: true,  divisor: 50 },
-  { key: 'fiber',         label: 'Fiber',       color: '#3aaa4a', positive: true,  divisor: 25 },
-  { key: 'calcium',       label: 'Calcium',     color: '#26c6da', positive: true,  divisor: 1000 },
-  { key: 'iron',          label: 'Iron',        color: '#ef5350', positive: true,  divisor: 18 },
-  { key: 'vitamin_a',     label: 'Vitamin A',   color: '#ff9800', positive: true,  divisor: 5000 },
-  { key: 'vitamin_c',     label: 'Vitamin C',   color: '#ffd600', positive: true,  divisor: 60 },
-  { key: 'vitamin_e',     label: 'Vitamin E',   color: '#8bc34a', positive: true,  divisor: 30 },
-  { key: 'magnesium',     label: 'Magnesium',   color: '#ab47bc', positive: true,  divisor: 400 },
-  { key: 'potassium',     label: 'Potassium',   color: '#26a69a', positive: true,  divisor: 3500 },
-  { key: 'saturated_fat', label: 'Sat. Fat',    color: '#ff7043', positive: false, divisor: 20 },
-  { key: 'added_sugar',   label: 'Added Sugar', color: '#e53935', positive: false, divisor: 50 },
-  { key: 'sodium',        label: 'Sodium',      color: '#b71c1c', positive: false, divisor: 2400 },
+  { key: 'protein',       label: 'Protein (g)',         color: '#2a7abf', positive: true,  divisor: 50 },
+  { key: 'fiber',         label: 'Fiber (g)',           color: '#3aaa4a', positive: true,  divisor: 25 },
+  { key: 'calcium',       label: 'Calcium (mg)',        color: '#26c6da', positive: true,  divisor: 1000 },
+  { key: 'iron',          label: 'Iron (mg)',           color: '#ef5350', positive: true,  divisor: 18 },
+  { key: 'vitamin_a',     label: 'Vitamin A (IU)',      color: '#ff9800', positive: true,  divisor: 5000 },
+  { key: 'vitamin_c',     label: 'Vitamin C (mg)',      color: '#ffd600', positive: true,  divisor: 60 },
+  { key: 'vitamin_e',     label: 'Vitamin E (IU)',      color: '#8bc34a', positive: true,  divisor: 30 },
+  { key: 'magnesium',     label: 'Magnesium (mg)',      color: '#ab47bc', positive: true,  divisor: 400 },
+  { key: 'potassium',     label: 'Potassium (mg)',      color: '#26a69a', positive: true,  divisor: 3500 },
+  { key: 'saturated_fat', label: 'Saturated Fat (g)',   color: '#ff7043', positive: false, divisor: 20 },
+  { key: 'added_sugar',   label: 'Added Sugar (g)',     color: '#e53935', positive: false, divisor: 50 },
+  { key: 'sodium',        label: 'Sodium (mg)',         color: '#b71c1c', positive: false, divisor: 2400 },
 ];
+
+const NUTRIENT_LABELS = Object.fromEntries(NUTRIENTS.map(({ key, label }) => [key, label]));
 
 // ─── Environmental circles config ────────────────────────
 const ENV_CIRCLES = [
   {
     id: 'water',
     label: 'Water Footprint',
-    unit: 'L/FU',
+    unit: 'L/kg',
     color: '#3a7ebf',
     scoreKey: 'water_use_score',
-    detail: 'Avg. Freshwater Withdrawals + Stress-Weighted Water Use',
+    detail: 'Freshwater Withdrawals + Stress-Weighted Water Use',
+    description: 'How much fresh water is used to produce your food — combining total water withdrawn and the extra strain placed on sources that are already scarce or over-used.',
     calc: (r) => averageValues([r.freshwater_withdrawals, r.stress_weighted_water_use]),
   },
   {
     id: 'nitrogen',
     label: 'Nitrogen Footprint',
-    unit: 'g SO\u2082-eq/FU',
+    unit: 'g SO\u2082eq/kg',
     color: '#26b090',
     scoreKey: 'nitrogen_use_score',
-    detail: 'Avg. Acidifying + Eutrophying Emissions',
+    detail: 'Acidifying + Eutrophying Emissions',
+    description: 'The pollution your food sends into the air and waterways — acid-forming gases that cause acid rain, and nutrient runoff that triggers algae blooms and dead zones in rivers and oceans.',
     calc: (r) => averageValues([r.acidifying_emissions, r.eutrophying_emissions]),
   },
   {
     id: 'carbon',
     label: 'Carbon Footprint',
-    unit: 'kg CO\u2082/FU',
+    unit: 'kg CO\u2082eq/kg',
     color: '#78909c',
     scoreKey: 'carbon_use_score',
-    detail: 'GHG Emissions per Functional Unit',
+    detail: 'GHG Emissions',
+    description: 'The total greenhouse gases released to grow, raise, process, and transport your food — the biggest driver of climate change from what we eat.',
     calc: (r) => r.ghg_emissions,
   },
   {
     id: 'land',
     label: 'Land Use',
-    unit: 'm\u00b2/FU',
+    unit: 'm\u00b2/kg',
     color: '#66bb6a',
     scoreKey: 'land_use_score',
-    detail: 'Agricultural Land Use per Functional Unit',
+    detail: 'Agricultural Land Required',
+    description: 'How much farmland is needed to produce your food — land that could otherwise be wildlife habitat, forest, or restored ecosystem.',
     calc: (r) => r.land_use,
   },
 ];
@@ -77,7 +83,8 @@ const state = {
 
   // Tab & plate interaction
   activeTab: 'foods',
-  activePlatePortionId: null,  // portionId of selected pie slice
+  activePlatePortionId: null,  // portionId of selected pie slice (Foods tab)
+  activeSsPortionId: null,     // portionId of selected pie slice (Sustainability tab)
   activeEnvCircle: null,       // ENV_CIRCLES id with open tooltip
 
   // Ingredient counts (not persisted — resets on reload)
@@ -112,11 +119,14 @@ const plateInfoContEl  = document.getElementById('plateInfoContent');
 function getNutrientPieContEl() { return document.getElementById('nutrientPieContainer'); }
 function getNutrientPieLegendEl() { return document.getElementById('nutrientPieLegend'); }
 const envCircles4El    = document.getElementById('envCircles4');
-const tabFoodsEl       = document.getElementById('tabFoods');
-const tabNutrientsEl   = document.getElementById('tabNutrients');
-const tabEnvEl         = document.getElementById('tabEnv');
-const searchFormEl     = document.getElementById('searchForm');
-const searchInputEl    = document.getElementById('searchInput');
+const tabFoodsEl           = document.getElementById('tabFoods');
+const tabNutrientsEl       = document.getElementById('tabNutrients');
+const tabEnvEl             = document.getElementById('tabEnv');
+const tabSustainabilityEl  = document.getElementById('tabSustainability');
+const ssPieContEl          = document.getElementById('ssPieContainer');
+const ssPieLegendEl        = document.getElementById('ssPieLegend');
+const ssInfoTitleEl        = document.getElementById('ssInfoTitle');
+const ssInfoContEl         = document.getElementById('ssInfoContent');
 const searchSummaryEl  = document.getElementById('searchSummary');
 const resultsGridEl    = document.getElementById('resultsGrid');
 const emptyStateEl     = document.getElementById('emptyState');
@@ -188,6 +198,7 @@ function snapshotIngredient(ingredient) {
     id: ingredient?.id ?? null,
     name,
     sustainability_index: ingredient?.sustainability_index == null ? null : Number(ingredient.sustainability_index),
+    grams_in_portion: ingredient?.grams_in_portion == null ? null : Number(ingredient.grams_in_portion),
   };
 }
 
@@ -254,52 +265,148 @@ function getMealItemById(itemId) {
   return state.mealItems.find((item) => item.id === itemId) || null;
 }
 
+function isMealItemCustomized(mealItem) {
+  if ((mealItem.addedIngredients || []).length > 0) {
+    return true;
+  }
+
+  for (const ing of mealItem.ingredients || []) {
+    if (getIngredientCount(mealItem.id, normalizeIngredientKey(ing.name)) !== 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Resolve live grams for an added ingredient:
+// prefer state.ingredientsByKey (refreshes on tab-focus), fall back to stored value.
+function resolveAddedGrams(ing) {
+  const key = normalizeIngredientKey(ing.name);
+  const live = state.ingredientsByKey.get(key);
+  return live?.default_grams_in_portion ?? ing.grams_in_portion ?? 100;
+}
+
+// Compute base grams for a recipe with per-ingredient count adjustments.
+function recipeBaseGrams(recipe, mealItemId) {
+  let total = 0;
+  for (const ing of (recipe.tagged_ingredients || [])) {
+    const count = getIngredientCount(mealItemId, normalizeIngredientKey(ing.name));
+    total += (ing.grams_in_portion ?? 100) * count;
+  }
+  return total;
+}
+
+// Blend a recipe-level composite score with added ingredients' individual scores by grams.
+// scoreKey: 'nutrition_composite_score' | 'environmental_composite_score' | 'sustainability_index'
+function blendCompositeByGrams(recipeScore, baseTotalGrams, addedIngs, scoreKey, mealItemId) {
+  if (recipeScore == null) return null;
+  let addedWeightedSum = 0;
+  let addedTotalGrams = 0;
+  for (const ing of addedIngs) {
+    const key = normalizeIngredientKey(ing.name);
+    const liveIng = state.ingredientsByKey.get(key);
+    const score = liveIng?.[scoreKey] ?? ing[scoreKey];
+    if (score == null) continue;
+    const count = getIngredientCount(mealItemId, key);
+    if (!count) continue;
+    const grams = resolveAddedGrams(ing);
+    addedWeightedSum += score * grams * count;
+    addedTotalGrams += grams * count;
+  }
+  const totalGrams = baseTotalGrams + addedTotalGrams;
+  if (totalGrams === 0) return recipeScore;
+  return roundMetric((recipeScore * baseTotalGrams + addedWeightedSum) / totalGrams);
+}
+
 function getMealItemScore(mealItem) {
-  const allIngs = [
-    ...mealItem.ingredients,
-    ...(mealItem.addedIngredients || []),
-  ];
+  const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
+  if (recipe && !isMealItemCustomized(mealItem)) {
+    return recipe.sustainability_index ?? null;
+  }
+
+  const addedIngs = mealItem.addedIngredients || [];
+
+  if (recipe && recipe.sustainability_index != null && addedIngs.length > 0) {
+    const baseTotalGrams = recipeBaseGrams(recipe, mealItem.id);
+    return blendCompositeByGrams(
+      recipe.sustainability_index, baseTotalGrams, addedIngs, 'sustainability_index', mealItem.id
+    );
+  }
+
+  // Fallback: per-ingredient weighted average (count-only changes, no recipe, or null recipe SI)
+  const liveGramsMap = new Map();
+  if (recipe) {
+    for (const ing of (recipe.tagged_ingredients || [])) {
+      liveGramsMap.set(normalizeIngredientKey(ing.name), ing.grams_in_portion ?? null);
+    }
+  }
+  const allIngs = [...mealItem.ingredients, ...addedIngs];
   let weightedSum = 0;
   let totalWeight = 0;
   for (const ing of allIngs) {
-    if (ing.sustainability_index == null) continue;
     const key = normalizeIngredientKey(ing.name);
-    const weight = getIngredientCount(mealItem.id, key);
-    if (!weight) continue;
-    weightedSum += ing.sustainability_index * weight;
-    totalWeight += weight;
+    const liveIng = state.ingredientsByKey.get(key);
+    const si = liveIng?.sustainability_index ?? ing.sustainability_index;
+    if (si == null) continue;
+    const count = getIngredientCount(mealItem.id, key);
+    if (!count) continue;
+    const isAdded = addedIngs.some((a) => normalizeIngredientKey(a.name) === key);
+    const grams = isAdded
+      ? resolveAddedGrams(ing)
+      : (liveGramsMap.get(key) ?? ing.grams_in_portion ?? 100);
+    weightedSum += si * grams * count;
+    totalWeight += grams * count;
   }
   return totalWeight > 0 ? roundMetric(weightedSum / totalWeight) : null;
 }
 
-// Split a meal item's weighted SI into nutrition / environmental portions
-// by preserving the recipe-level nut:env ratio.
 function getMealItemNutritionScore(mealItem) {
   const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
   if (!recipe) return null;
+  if (!isMealItemCustomized(mealItem)) {
+    return recipe.nutrition_composite_score ?? null;
+  }
   const rNut = recipe.nutrition_composite_score;
-  const rEnv = recipe.environmental_composite_score;
   if (rNut == null) return null;
-  const si = getMealItemScore(mealItem);
-  if (si === null) return rNut;
-  if (rEnv == null) return si;
-  const total = rNut + rEnv;
-  if (total === 0) return null;
-  return roundMetric(si * (rNut / total));
+  const addedIngs = mealItem.addedIngredients || [];
+  if (addedIngs.length === 0) {
+    // count-only changes: split SI by recipe nut:env ratio
+    const rEnv = recipe.environmental_composite_score;
+    const si = getMealItemScore(mealItem);
+    if (si === null) return rNut;
+    if (rEnv == null) return si;
+    const total = rNut + rEnv;
+    return total === 0 ? null : roundMetric(si * (rNut / total));
+  }
+  // Added ingredients: blend nutrition composites directly by grams
+  return blendCompositeByGrams(
+    rNut, recipeBaseGrams(recipe, mealItem.id), addedIngs, 'nutrition_composite_score', mealItem.id
+  );
 }
 
 function getMealItemEnvScore(mealItem) {
   const recipe = state.recipes.find((r) => r.id === mealItem.recipeId);
   if (!recipe) return null;
-  const rNut = recipe.nutrition_composite_score;
+  if (!isMealItemCustomized(mealItem)) {
+    return recipe.environmental_composite_score ?? null;
+  }
   const rEnv = recipe.environmental_composite_score;
   if (rEnv == null) return null;
-  const si = getMealItemScore(mealItem);
-  if (si === null) return rEnv;
-  if (rNut == null) return si;
-  const total = rNut + rEnv;
-  if (total === 0) return null;
-  return roundMetric(si * (rEnv / total));
+  const addedIngs = mealItem.addedIngredients || [];
+  if (addedIngs.length === 0) {
+    // count-only changes: split SI by recipe nut:env ratio
+    const rNut = recipe.nutrition_composite_score;
+    const si = getMealItemScore(mealItem);
+    if (si === null) return rEnv;
+    if (rNut == null) return si;
+    const total = rNut + rEnv;
+    return total === 0 ? null : roundMetric(si * (rEnv / total));
+  }
+  // Added ingredients: blend environmental composites directly by grams
+  return blendCompositeByGrams(
+    rEnv, recipeBaseGrams(recipe, mealItem.id), addedIngs, 'environmental_composite_score', mealItem.id
+  );
 }
 
 function getOverallMealScore() {
@@ -486,7 +593,7 @@ function renderScoreProminentGrid(entry) {
   return `
     <div class="score-prominent-grid">
       <div class="score-prominent-card score-prominent-si" style="background:${siPal.background};border-color:${siPal.border};color:${siPal.text};">
-        <span class="score-prominent-label">Sustainability Index</span>
+        <span class="score-prominent-label">Sustainability Score</span>
         <strong class="score-prominent-value">${escapeHtml(formatMetric(entry.sustainability_index))}</strong>
         <span class="score-prominent-eq">= Nutrition + Environmental</span>
       </div>
@@ -506,12 +613,12 @@ function renderScoreProminentGrid(entry) {
 function renderNutrientSubgrid(entry) {
   return `
     <div class="score-subgrid">
-      <div class="score-subcell"><span>Protein</span><strong>${escapeHtml(formatMetric(entry.protein))}</strong></div>
-      <div class="score-subcell"><span>Fiber</span><strong>${escapeHtml(formatMetric(entry.fiber))}</strong></div>
-      <div class="score-subcell"><span>Calcium</span><strong>${escapeHtml(formatMetric(entry.calcium))}</strong></div>
-      <div class="score-subcell"><span>Iron</span><strong>${escapeHtml(formatMetric(entry.iron))}</strong></div>
-      <div class="score-subcell"><span>Sat. Fat</span><strong>${escapeHtml(formatMetric(entry.saturated_fat))}</strong></div>
-      <div class="score-subcell"><span>Sodium</span><strong>${escapeHtml(formatMetric(entry.sodium))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.protein)}</span><strong>${escapeHtml(formatMetric(entry.protein))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.fiber)}</span><strong>${escapeHtml(formatMetric(entry.fiber))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.calcium)}</span><strong>${escapeHtml(formatMetric(entry.calcium))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.iron)}</span><strong>${escapeHtml(formatMetric(entry.iron))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.saturated_fat)}</span><strong>${escapeHtml(formatMetric(entry.saturated_fat))}</strong></div>
+      <div class="score-subcell"><span>${escapeHtml(NUTRIENT_LABELS.sodium)}</span><strong>${escapeHtml(formatMetric(entry.sodium))}</strong></div>
     </div>`;
 }
 
@@ -538,14 +645,14 @@ function renderIngredientScorePill(ingredient) {
     data-open="false"
     data-ingredient-detail-trigger
     data-ingredient-key="${key}"
-    title="SI ${label}"
-    aria-label="${name} sustainability index ${label}"
+    title="SS ${label}"
+    aria-label="${name} sustainability score ${label}"
     aria-expanded="false"
   >
     <span>${name}</span>
     <span class="ingredient-pill-score"
       style="--ingredient-score-bg-start:${escapeHtml(pal.background)};--ingredient-score-bg-end:${escapeHtml(pal.border)};--ingredient-score-text:${escapeHtml(pal.text)};--ingredient-score-border:${escapeHtml(pal.border)};">
-      SI ${label}
+      SS ${label}
     </span>
   </button>`;
 }
@@ -611,6 +718,224 @@ function renderPlatePie() {
   platePieLegendEl.innerHTML = renderLegend(legendItems);
 }
 
+// ─── Sustainability Breakdown tab ────────────────────────
+function buildSustainabilitySlices() {
+  if (!state.mealItems.length) return [];
+  return state.mealItems.map((item) => {
+    const ss = getMealItemScore(item);
+    const pal = getSustainabilityPalette(ss);
+    return {
+      label: item.recipeName,
+      value: ss ?? 0,
+      color: pal.border,
+      clickId: `portion:${item.id}`,
+      highlighted: state.activeSsPortionId === item.id,
+      dimmed: state.activeSsPortionId !== null && state.activeSsPortionId !== item.id,
+    };
+  });
+}
+
+function renderSsInfoPanel() {
+  const portionId = state.activeSsPortionId;
+
+  if (portionId) {
+    const item = getMealItemById(portionId);
+    if (item) {
+      const nutScore = getMealItemNutritionScore(item);
+      const envScore = getMealItemEnvScore(item);
+      const nutPal = getSustainabilityPalette(nutScore != null ? nutScore * 2 : null);
+      const envPal = getSustainabilityPalette(envScore != null ? envScore * 2 : null);
+      const ss = getMealItemScore(item);
+      const ssPal = getSustainabilityPalette(ss);
+
+      const liveRecipe = state.recipes.find((r) => r.id === item.recipeId);
+      const liveScoreMap = new Map(
+        (liveRecipe?.tagged_ingredients ?? []).map((i) => [i.name, i])
+      );
+
+      const ingRows = item.ingredients.map((ing) => {
+        const live = liveScoreMap.get(ing.name) ?? ing;
+        const ingSs = live.sustainability_index;
+        const ingNut = live.nutrition_composite_score;
+        const ingEnv = live.environmental_composite_score;
+        const pSs = getSustainabilityPalette(ingSs);
+        const pNut = getSustainabilityPalette(ingNut != null ? ingNut * 2 : null);
+        const pEnv = getSustainabilityPalette(ingEnv != null ? ingEnv * 2 : null);
+        return `<div class="ing-row ing-row-ss">
+          <span class="ing-name">${escapeHtml(ing.name)}</span>
+          <div class="ing-ss-right">
+            <div class="ing-ss-sub-row">
+              <span class="ing-ss-pill" style="background:${escapeHtml(pNut.background)};border:1px solid ${escapeHtml(pNut.border)};color:${escapeHtml(pNut.text)};">Nut ${ingNut != null ? escapeHtml(formatMetric(ingNut)) : '\u2014'}</span>
+              <span class="ing-ss-pill" style="background:${escapeHtml(pEnv.background)};border:1px solid ${escapeHtml(pEnv.border)};color:${escapeHtml(pEnv.text)};">Env ${ingEnv != null ? escapeHtml(formatMetric(ingEnv)) : '\u2014'}</span>
+            </div>
+            <span class="ing-ss-pill" style="background:${escapeHtml(pSs.background)};border:1px solid ${escapeHtml(pSs.border)};color:${escapeHtml(pSs.text)};">SS ${ingSs != null ? escapeHtml(formatMetric(ingSs)) : '\u2014'}</span>
+          </div>
+        </div>`;
+      }).join('');
+
+      ssInfoTitleEl.textContent = item.recipeName;
+      ssInfoContEl.innerHTML = `
+        <button class="button button-secondary detail-back-button" type="button" data-ss-info-back>
+          \u2190 Back to Overview
+        </button>
+        <div class="score-prominent-card score-prominent-si" style="background:${escapeHtml(ssPal.background)};border-color:${escapeHtml(ssPal.border)};color:${escapeHtml(ssPal.text)};margin-bottom:8px;">
+          <span class="score-prominent-label">Sustainability Score</span>
+          <strong class="score-prominent-value">${escapeHtml(formatMetric(ss))}</strong>
+          <span class="score-prominent-eq">/ 10</span>
+        </div>
+        <div class="ss-subscore-row">
+          <div class="score-prominent-card" style="background:${escapeHtml(nutPal.background)};border-color:${escapeHtml(nutPal.border)};color:${escapeHtml(nutPal.text)};">
+            <span class="score-prominent-label">Nutrition</span>
+            <strong class="score-prominent-value">${escapeHtml(formatMetric(nutScore))}</strong>
+            <span class="score-prominent-eq">/ 5</span>
+          </div>
+          <div class="score-prominent-card" style="background:${escapeHtml(envPal.background)};border-color:${escapeHtml(envPal.border)};color:${escapeHtml(envPal.text)};">
+            <span class="score-prominent-label">Environmental</span>
+            <strong class="score-prominent-value">${escapeHtml(formatMetric(envScore))}</strong>
+            <span class="score-prominent-eq">/ 5</span>
+          </div>
+        </div>
+        ${item.ingredients.length ? `<p class="panel-kicker" style="margin-top:10px;">Ingredients</p><div class="ing-list">${ingRows}</div>` : '<p class="detail-copy">No ingredients listed.</p>'}
+      `;
+      return;
+    }
+  }
+
+  // ── Overview (no slice selected) ──────────────────────────
+  const overallScore = getOverallMealScore();
+  const overallPal = getSustainabilityPalette(overallScore);
+
+  const nutScores = state.mealItems.map(getMealItemNutritionScore).filter((v) => v !== null);
+  const envScores = state.mealItems.map(getMealItemEnvScore).filter((v) => v !== null);
+  const avgNutScore = nutScores.length ? roundMetric(nutScores.reduce((a, b) => a + b, 0) / nutScores.length) : null;
+  const avgEnvScore = envScores.length ? roundMetric(envScores.reduce((a, b) => a + b, 0) / envScores.length) : null;
+  const nutPal = getSustainabilityPalette(avgNutScore != null ? avgNutScore * 2 : null);
+  const envPal = getSustainabilityPalette(avgEnvScore != null ? avgEnvScore * 2 : null);
+
+  function miniPie2(a, b, colA, colB) {
+    if (a == null && b == null) return '';
+    const va = a ?? 0; const vb = b ?? 0;
+    if (va + vb === 0) return '';
+    const { svg: pieSvg } = renderPieChart(
+      [{ label: 'Nutrition', value: va, color: colA }, { label: 'Environmental', value: vb, color: colB }],
+      { cx: 30, cy: 30, r: 28, minLabelDeg: 999 }
+    );
+    return `<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" class="si-breakdown-mini-pie">${pieSvg.replace(/<svg[^>]*>|<\/svg>/g, '')}</svg>`;
+  }
+  const miniPieSvg = miniPie2(avgNutScore, avgEnvScore, nutPal.border, envPal.border);
+
+  // ── Rankings ────────────────────────────────────────────
+  // Foods ranked by sub-scores
+  const foodsWithScores = state.mealItems.map((item) => ({
+    name: item.recipeName,
+    nut: getMealItemNutritionScore(item),
+    env: getMealItemEnvScore(item),
+    ss: getMealItemScore(item)
+  }));
+  const byNut = [...foodsWithScores].filter((f) => f.nut !== null).sort((a, b) => b.nut - a.nut);
+  const byEnv = [...foodsWithScores].filter((f) => f.env !== null).sort((a, b) => b.env - a.env);
+
+  // Ingredients across all meal items — scores from live state.recipes, names from item.ingredients
+  const liveIngScoreMap = new Map();
+  for (const item of state.mealItems) {
+    const liveRecipe = state.recipes.find((r) => r.id === item.recipeId);
+    for (const ing of (liveRecipe?.tagged_ingredients ?? [])) {
+      if (!liveIngScoreMap.has(ing.name)) liveIngScoreMap.set(ing.name, ing);
+    }
+  }
+  const ingNamesSeen = new Set();
+  const allIngs = [];
+  for (const item of state.mealItems) {
+    for (const ing of item.ingredients) {
+      if (!ingNamesSeen.has(ing.name)) {
+        ingNamesSeen.add(ing.name);
+        allIngs.push(liveIngScoreMap.get(ing.name) ?? ing);
+      }
+    }
+  }
+  const ingsByNut = [...allIngs].filter((i) => i.nutrition_composite_score !== null).sort((a, b) => b.nutrition_composite_score - a.nutrition_composite_score);
+  const ingsByEnv = [...allIngs].filter((i) => i.environmental_composite_score !== null).sort((a, b) => b.environmental_composite_score - a.environmental_composite_score);
+
+  function rankRow(name, mainScore, subEntries) {
+    const palMain = getSustainabilityPalette(mainScore != null ? mainScore * 2 : null);
+    const subHtml = (subEntries || []).map(({ label, score }) => {
+      const pal = getSustainabilityPalette(score != null ? score * 2 : null);
+      return `<span class="ing-ss-pill" style="background:${escapeHtml(pal.background)};border:1px solid ${escapeHtml(pal.border)};color:${escapeHtml(pal.text)};">${escapeHtml(label)} ${score != null ? escapeHtml(formatMetric(score)) : '\u2014'}</span>`;
+    }).join('');
+    return `<div class="ss-rank-row">
+      <span class="ss-rank-name">${escapeHtml(name)}</span>
+      <div class="ing-ss-right">
+        ${subHtml ? `<div class="ing-ss-sub-row">${subHtml}</div>` : ''}
+        <span class="ing-ss-pill" style="background:${escapeHtml(palMain.background)};border:1px solid ${escapeHtml(palMain.border)};color:${escapeHtml(palMain.text)};">${mainScore != null ? escapeHtml(formatMetric(mainScore)) : '\u2014'}</span>
+      </div>
+    </div>`;
+  }
+
+  function rankSection(title, topFood, bottomFood, topIng, bottomIng, mainFoodKey, mainIngKey) {
+    const rows = [];
+    if (topFood) rows.push(`<p class="ss-rank-label">&#11014; Top food</p>${rankRow(topFood.name, topFood[mainFoodKey], [{label: 'SS', score: topFood.ss}])}`);
+    if (bottomFood && bottomFood.name !== topFood.name) rows.push(`<p class="ss-rank-label">&#11015; Bottom food</p>${rankRow(bottomFood.name, bottomFood[mainFoodKey], [{label: 'SS', score: bottomFood.ss}])}`);
+    if (topIng) rows.push(`<p class="ss-rank-label">&#11014; Top ingredient</p>${rankRow(topIng.name, topIng[mainIngKey], [{label: 'SS', score: topIng.sustainability_index}])}`);
+    if (bottomIng && bottomIng.name !== topIng.name) rows.push(`<p class="ss-rank-label">&#11015; Bottom ingredient</p>${rankRow(bottomIng.name, bottomIng[mainIngKey], [{label: 'SS', score: bottomIng.sustainability_index}])}`);
+    return rows.length ? `<p class="panel-kicker" style="margin-top:14px;">${escapeHtml(title)}</p><div class="ss-rank-list">${rows.join('')}</div>` : '';
+  }
+
+  const nutSection = rankSection(
+    'Nutrition Rankings',
+    byNut[0], byNut[byNut.length - 1],
+    ingsByNut[0], ingsByNut[ingsByNut.length - 1],
+    'nut', 'nutrition_composite_score'
+  );
+
+  const envSection = rankSection(
+    'Environmental Rankings',
+    byEnv[0], byEnv[byEnv.length - 1],
+    ingsByEnv[0], ingsByEnv[ingsByEnv.length - 1],
+    'env', 'environmental_composite_score'
+  );
+
+  ssInfoTitleEl.textContent = 'Sustainability Overview';
+  ssInfoContEl.innerHTML = `
+    <div class="score-prominent-grid">
+      <div class="score-prominent-card score-prominent-si" style="background:${escapeHtml(overallPal.background)};border-color:${escapeHtml(overallPal.border)};color:${escapeHtml(overallPal.text)};">
+        <span class="score-prominent-label">Overall Meal SS</span>
+        <strong class="score-prominent-value">${escapeHtml(formatMetric(overallScore))}</strong>
+        <span class="score-prominent-eq">avg. sustainability score</span>
+      </div>
+    </div>
+    <div class="si-breakdown-row">
+      ${miniPieSvg}
+      <div class="si-breakdown-cards">
+        <div class="si-breakdown-card" style="background:${escapeHtml(nutPal.background)};border-color:${escapeHtml(nutPal.border)};color:${escapeHtml(nutPal.text)};">
+          <span>Nutrition</span>
+          <strong>${escapeHtml(formatMetric(avgNutScore))}</strong>
+        </div>
+        <div class="si-breakdown-card" style="background:${escapeHtml(envPal.background)};border-color:${escapeHtml(envPal.border)};color:${escapeHtml(envPal.text)};">
+          <span>Environmental</span>
+          <strong>${escapeHtml(formatMetric(avgEnvScore))}</strong>
+        </div>
+      </div>
+    </div>
+    ${nutSection}
+    ${envSection}
+    <p class="detail-copy" style="margin-top:12px;font-size:0.8rem;opacity:0.6;">Select a slice to see per-recipe breakdown.</p>
+  `;
+}
+
+function renderSustainabilityPie() {
+  const slices = buildSustainabilitySlices();
+  if (!slices.length) {
+    ssPieContEl.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;opacity:0.4;font-size:0.85rem;color:var(--muted);">Add recipes to see sustainability breakdown</div>`;
+    ssPieLegendEl.innerHTML = '';
+    renderSsInfoPanel();
+    return;
+  }
+  const { svg, legendItems } = renderPieChart(slices);
+  ssPieContEl.innerHTML = svg;
+  ssPieLegendEl.innerHTML = renderLegend(legendItems);
+  renderSsInfoPanel();
+}
+
 // ─── Plate Info Panel ─────────────────────────────────────
 function renderIngredientRow(portionId, ingKey, ingName, isAdded) {
   const count = getIngredientCount(portionId, ingKey);
@@ -647,9 +972,12 @@ function renderIngredientSearch(portionId) {
             data-ing-name="${escapeHtml(item.name)}"
             data-ing-si="${escapeHtml(String(item.sustainability_index ?? ''))}"
             data-ing-id="${escapeHtml(String(item.id ?? ''))}"
+            data-ing-default-grams="${escapeHtml(String(item.default_grams_in_portion ?? ''))}"
+            data-ing-nut="${escapeHtml(String(item.nutrition_composite_score ?? ''))}"
+            data-ing-env="${escapeHtml(String(item.environmental_composite_score ?? ''))}"
           >
             <span>${escapeHtml(item.name)}</span>
-            <span class="score-chip" style="background:${escapeHtml(pal.background)};border:1px solid ${escapeHtml(pal.border)};color:${escapeHtml(pal.text)};">SI ${escapeHtml(formatMetric(item.sustainability_index))}</span>
+            <span class="score-chip" style="background:${escapeHtml(pal.background)};border:1px solid ${escapeHtml(pal.border)};color:${escapeHtml(pal.text)};">SS ${escapeHtml(formatMetric(item.sustainability_index))}</span>
           </button>`;
         }).join('')}
       </div>`
@@ -738,7 +1066,7 @@ function renderPlateInfoPanel() {
             data-recipe-id="${escapeHtml(String(r.id))}"
           >
             <span>${escapeHtml(r.name)}</span>
-            <span class="score-chip" style="background:${escapeHtml(rPal.background)};border:1px solid ${escapeHtml(rPal.border)};color:${escapeHtml(rPal.text)};">SI ${escapeHtml(formatMetric(r.sustainability_index))}</span>
+            <span class="score-chip" style="background:${escapeHtml(rPal.background)};border:1px solid ${escapeHtml(rPal.border)};color:${escapeHtml(rPal.text)};">SS ${escapeHtml(formatMetric(r.sustainability_index))}</span>
           </button>`;
         }).join('')}
       </div>`
@@ -748,9 +1076,9 @@ function renderPlateInfoPanel() {
   plateInfoContEl.innerHTML = `
     <div class="score-prominent-grid">
       <div class="score-prominent-card score-prominent-si" style="background:${overallPal.background};border-color:${overallPal.border};color:${overallPal.text};">
-        <span class="score-prominent-label">Overall Meal SI</span>
+        <span class="score-prominent-label">Overall Meal SS</span>
         <strong class="score-prominent-value">${escapeHtml(formatMetric(overallScore))}</strong>
-        <span class="score-prominent-eq">avg. sustainability index</span>
+        <span class="score-prominent-eq">avg. sustainability score</span>
       </div>
     </div>
     <div class="si-breakdown-row">
@@ -775,7 +1103,7 @@ function renderPlateInfoPanel() {
         return `<div class="meal-agg-row" data-meal-agg-row data-recipe-id="${safeRecipeId}">
           <span class="meal-agg-name">${escapeHtml(agg.recipeName)}</span>
           <span class="meal-agg-count-center">${escapeHtml(String(agg.portions.length))}\u00d7</span>
-          <span class="score-chip" style="background:${pal.background};border:1px solid ${pal.border};color:${pal.text};">SI ${escapeHtml(formatMetric(avgScore))}</span>
+          <span class="score-chip" style="background:${pal.background};border:1px solid ${pal.border};color:${pal.text};">SS ${escapeHtml(formatMetric(avgScore))}</span>
           <div class="qty-control qty-control-sm">
             <button class="qty-btn qty-minus" type="button" data-meal-agg-minus data-recipe-id="${safeRecipeId}" aria-label="Remove one portion">&#8722;</button>
             <span class="qty-value">${escapeHtml(String(agg.portions.length))}</span>
@@ -822,6 +1150,17 @@ function renderNutrientTab() {
 
   const values = getAggregatedNutrientValues();
 
+  const rawTotals = {};
+  for (const nut of NUTRIENTS) rawTotals[nut.key] = 0;
+  for (const item of state.mealItems) {
+    const recipe = state.recipes.find((r) => r.id === item.recipeId);
+    if (recipe) {
+      for (const nut of NUTRIENTS) {
+        rawTotals[nut.key] += Math.abs(Number(recipe[nut.key] || 0));
+      }
+    }
+  }
+
   // Compute overall nutrition composite score (ingredient-count weighted)
   const nutScores = state.mealItems.map(getMealItemNutritionScore).filter((v) => v !== null);
   const avgNutScore = nutScores.length ? roundMetric(nutScores.reduce((a, b) => a + b, 0) / nutScores.length) : null;
@@ -832,6 +1171,7 @@ function renderNutrientTab() {
   const slices = NUTRIENTS.map((nut) => ({
     label: nut.label,
     value: values[nut.key] || 0,
+    rawTotal: rawTotals[nut.key] || 0,
     color: nut.color,
     clickId: `nutrient:${nut.label}`,
     highlighted: state.activeNutrientKey === nut.label,
@@ -844,7 +1184,8 @@ function renderNutrientTab() {
   const fullLegendHtml = slices.map((s) => `
     <div class="legend-item nutrient-legend-item${state.activeNutrientKey === s.label ? ' is-active' : ''}">
       <span class="legend-swatch" style="background:${escapeHtml(s.color)};"></span>
-      <span>${escapeHtml(s.label)}</span>
+      <span class="legend-label">${escapeHtml(s.label)}</span>
+      <span class="legend-raw-total">${escapeHtml(s.rawTotal.toFixed(1))}</span>
     </div>`).join('');
 
   // Build info panel HTML if a nutrient is selected
@@ -892,6 +1233,7 @@ function renderNutrientTab() {
       </div>
       <div class="nutrient-pie-col">
         <div id="nutrientPieContainer" class="pie-container nutrient-pie">${svg}</div>
+        <p class="pie-footnote">*click on a slice to view details</p>
       </div>
       ${infoPanelHtml}
     </div>`;
@@ -972,30 +1314,37 @@ function renderEnvTab() {
     const rawVal = rawVals[ec.id];
     const score = scoreVals[ec.id];
     const pct = score !== null && score !== undefined
-      ? Math.max(0, Math.min(100, Math.round(((score - 1) / 4) * 100)))
+      ? Math.max(0, Math.min(100, (score / 5) * 100))
       : 0;
     const isActive = state.activeEnvCircle === ec.id;
     const displayScore = score !== null && score !== undefined ? formatMetric(score) : 'N/A';
     const hasRaw = rawVal !== null && rawVal !== undefined;
     const displayVal = hasRaw ? Number(rawVal).toFixed(2) : null;
 
-    const tooltip = isActive
+    const hoverTip = `<div class="env4-hover-tip">
+        <span class="env4-tip-pill" style="background:${escapeHtml(ec.color)};">Score ${escapeHtml(displayScore)} / 5</span>
+        ${hasRaw ? `<span class="env4-tip-raw">${escapeHtml(displayVal)} ${escapeHtml(ec.unit)}</span>` : ''}
+      </div>`;
+
+    const clickTooltip = isActive
       ? `<div class="env4-tooltip">
           <strong>${escapeHtml(ec.label)}</strong>
-          <span>${escapeHtml(ec.detail)}</span>
+          <span class="env4-tooltip-desc">${escapeHtml(ec.description)}</span>
+          <span class="env4-tooltip-detail">${escapeHtml(ec.detail)}</span>
           ${hasRaw
-            ? `<span>${escapeHtml(displayVal)} ${escapeHtml(ec.unit)}</span>`
+            ? `<span class="env4-tooltip-val">${escapeHtml(displayVal)} ${escapeHtml(ec.unit)}</span>`
             : `<span>Score: ${escapeHtml(displayScore)} / 5</span>`}
         </div>`
       : '';
 
     return `<div class="env-circle4-wrap${isActive ? ' is-active' : ''}" data-env-circle4="${escapeHtml(ec.id)}">
-      <div class="env-circle4" style="--ec-color:${escapeHtml(ec.color)};--ec-pct:${pct}%;" title="${escapeHtml(displayVal)} ${escapeHtml(ec.unit)}">
+      ${hoverTip}
+      <div class="env-circle4" style="--ec-color:${escapeHtml(ec.color)};--ec-pct:${pct}%;">
         <span class="env-circle4-val">${escapeHtml(displayScore)}</span>
         <span class="env-circle4-unit">/ 5</span>
       </div>
       <span class="env-circle4-label">${escapeHtml(ec.label)}</span>
-      ${tooltip}
+      ${clickTooltip}
     </div>`;
   }).join('');
 
@@ -1015,7 +1364,7 @@ function renderMealPlatePills() {
   mealPlatePillsEl.innerHTML = `
     <span class="pill meal-pill-portions">${escapeHtml(String(totalPortions))} Portion${totalPortions === 1 ? '' : 's'}</span>
     <span class="pill meal-pill-si" style="background:${escapeHtml(siPal.background)};border:1px solid ${escapeHtml(siPal.border)};color:${escapeHtml(siPal.text)};">
-      SI ${overallScore !== null ? escapeHtml(formatMetric(overallScore)) : '\u2014'}
+      SS ${overallScore !== null ? escapeHtml(formatMetric(overallScore)) : '\u2014'}
     </span>`;
 }
 
@@ -1027,6 +1376,7 @@ function switchTab(tabId) {
     foods: tabFoodsEl,
     nutrients: tabNutrientsEl,
     environmental: tabEnvEl,
+    sustainability: tabSustainabilityEl,
   };
 
   for (const [id, el] of Object.entries(tabPanels)) {
@@ -1048,6 +1398,7 @@ function renderMealPlate() {
   renderPlateInfoPanel();
   renderNutrientTab();
   renderEnvTab();
+  renderSustainabilityPie();
 }
 
 // ─── Catalog render ───────────────────────────────────────
@@ -1080,7 +1431,7 @@ function buildRecipeCard(recipe) {
     <button class="star-btn${isStarred ? ' is-starred' : ''}" type="button" data-star-recipe data-recipe-id="${escapeHtml(String(recipe.id))}" aria-label="Favorite">\u2605</button>
     <div class="result-topline">
       <span class="score-chip" style="background:${escapeHtml(pal.background)};border:1px solid ${escapeHtml(pal.border)};color:${escapeHtml(pal.text)};">
-        Sustainability ${escapeHtml(formatMetric(recipe.sustainability_index))}
+        Sustainability Score ${escapeHtml(formatMetric(recipe.sustainability_index))}
       </span>
     </div>
     <h3 class="result-title">${escapeHtml(recipe.name)}</h3>
@@ -1177,7 +1528,7 @@ function renderCatalogDetail() {
       <div class="catalog-detail-inner">
         <p class="detail-copy">Last updated ${escapeHtml(formatDateTime(ingredient.updated_at))}.</p>
         ${renderScoreProminentGrid(ingredient)}
-        <p class="panel-kicker">Nutrition</p>
+        <p class="panel-kicker">Nutrition (per 100g)</p>
         ${renderNutrientSubgrid(ingredient)}
         <p class="panel-kicker">Environmental</p>
         ${renderEnvSubgrid(ingredient)}
@@ -1213,6 +1564,38 @@ function renderCatalogDetail() {
 // ─── Ingredient search (debounced) ────────────────────────
 let _ingSearchTimer = null;
 
+function patchIngSearchDropdown(portionId) {
+  const wrap = plateInfoContEl.querySelector(`[data-ing-search-wrap][data-portion-id="${CSS.escape(portionId)}"]`);
+  if (!wrap) return;
+  const existing = wrap.querySelector('.ing-search-dropdown');
+  const results = state.ingredientSearchResults;
+  if (!results.length) {
+    if (existing) existing.remove();
+    return;
+  }
+  const safePortionId = escapeHtml(portionId);
+  const html = `<div class="ing-search-dropdown">
+    ${results.slice(0, 8).map((item) => {
+      const pal = getSustainabilityPalette(item.sustainability_index);
+      return `<button class="ing-search-result" type="button"
+        data-ing-search-pick
+        data-portion-id="${safePortionId}"
+        data-ing-name="${escapeHtml(item.name)}"
+        data-ing-si="${escapeHtml(String(item.sustainability_index ?? ''))}"
+        data-ing-id="${escapeHtml(String(item.id ?? ''))}"
+      >
+        <span>${escapeHtml(item.name)}</span>
+        <span class="score-chip" style="background:${escapeHtml(pal.background)};border:1px solid ${escapeHtml(pal.border)};color:${escapeHtml(pal.text)};">SS ${escapeHtml(formatMetric(item.sustainability_index))}</span>
+      </button>`;
+    }).join('')}
+  </div>`;
+  if (existing) {
+    existing.outerHTML = html;
+  } else {
+    wrap.insertAdjacentHTML('beforeend', html);
+  }
+}
+
 function handleIngredientSearchInput(portionId, query) {
   state.ingredientSearchPortionId = portionId;
   state.ingredientSearch = query;
@@ -1220,7 +1603,7 @@ function handleIngredientSearchInput(portionId, query) {
 
   clearTimeout(_ingSearchTimer);
   if (!query.trim()) {
-    renderPlateInfoPanel();
+    patchIngSearchDropdown(portionId);
     return;
   }
   _ingSearchTimer = setTimeout(async () => {
@@ -1232,11 +1615,11 @@ function handleIngredientSearchInput(portionId, query) {
     } catch {
       state.ingredientSearchResults = [];
     }
-    renderPlateInfoPanel();
+    patchIngSearchDropdown(portionId);
   }, 250);
 }
 
-function addIngredientToPortion(portionId, ingName, ingId, siValue) {
+function addIngredientToPortion(portionId, ingName, ingId, siValue, defaultGramsOverride, nutValue, envValue) {
   const item = getMealItemById(portionId);
   if (!item) return;
 
@@ -1255,6 +1638,11 @@ function addIngredientToPortion(portionId, ingName, ingId, siValue) {
           id: ingId || null,
           name: ingName,
           sustainability_index: siValue !== '' && siValue != null ? Number(siValue) : null,
+          nutrition_composite_score: nutValue !== '' && nutValue != null ? Number(nutValue) : null,
+          environmental_composite_score: envValue !== '' && envValue != null ? Number(envValue) : null,
+          grams_in_portion: (defaultGramsOverride !== '' && defaultGramsOverride != null)
+            ? Number(defaultGramsOverride)
+            : 100,
           key,
         },
       ],
@@ -1356,7 +1744,11 @@ plateInfoContEl.addEventListener('click', (event) => {
     const key = ingMinus.dataset.ingKey;
     setIngredientCount(pid, key, getIngredientCount(pid, key) - 1);
     renderMealPlatePills();
+    renderPlatePie();
     renderPlateInfoPanel();
+    renderNutrientTab();
+    renderEnvTab();
+    renderSustainabilityPie();
     return;
   }
 
@@ -1367,7 +1759,11 @@ plateInfoContEl.addEventListener('click', (event) => {
     const key = ingPlus.dataset.ingKey;
     setIngredientCount(pid, key, getIngredientCount(pid, key) + 1);
     renderMealPlatePills();
+    renderPlatePie();
     renderPlateInfoPanel();
+    renderNutrientTab();
+    renderEnvTab();
+    renderSustainabilityPie();
     return;
   }
 
@@ -1385,7 +1781,10 @@ plateInfoContEl.addEventListener('click', (event) => {
     const name = searchPick.dataset.ingName;
     const id = searchPick.dataset.ingId;
     const si = searchPick.dataset.ingSi;
-    addIngredientToPortion(pid, name, id, si);
+    const defaultGrams = searchPick.dataset.ingDefaultGrams;
+    const nut = searchPick.dataset.ingNut;
+    const env = searchPick.dataset.ingEnv;
+    addIngredientToPortion(pid, name, id, si, defaultGrams, nut, env);
     return;
   }
 
@@ -1440,6 +1839,30 @@ plateInfoContEl.addEventListener('click', (event) => {
       renderPlateInfoPanel();
     }
     return;
+  }
+});
+
+// Sustainability pie
+ssPieContEl.addEventListener('click', (event) => {
+  const path = event.target.closest('[data-pie-click]');
+  if (!path) {
+    state.activeSsPortionId = null;
+    renderSustainabilityPie();
+    return;
+  }
+  const clickId = path.dataset.pieClick;
+  if (clickId.startsWith('portion:')) {
+    const portionId = clickId.slice('portion:'.length);
+    state.activeSsPortionId = state.activeSsPortionId === portionId ? null : portionId;
+    renderSustainabilityPie();
+  }
+});
+
+// Sustainability info panel — back button
+ssInfoContEl.addEventListener('click', (event) => {
+  if (event.target.closest('[data-ss-info-back]')) {
+    state.activeSsPortionId = null;
+    renderSustainabilityPie();
   }
 });
 
@@ -1636,13 +2059,6 @@ document.addEventListener('click', (event) => {
   }
 });
 
-// Search form
-searchFormEl.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  await loadRecipes(searchInputEl.value);
-  catalogSectionEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-});
-
 // Catalog recipe search (live filter)
 let _catalogSearchTimer = null;
 catalogRecipeSearch.addEventListener('input', () => {
@@ -1678,6 +2094,29 @@ window.addEventListener('keydown', (event) => {
 });
 
 // ─── Bootstrap ────────────────────────────────────────────
+async function renderFaqs() {
+  const faqList = document.getElementById('faqList');
+  const faqEntries = document.getElementById('faqEntries');
+  if (!faqList) return;
+  try {
+    const { faqs } = await api('/api/faqs');
+    if (!faqs.length) {
+      faqEntries.classList.add('hidden');
+      return;
+    }
+    faqEntries.classList.remove('hidden');
+    faqList.innerHTML = `
+      <hr class="faq-divider">
+      ${faqs.map((faq) => `
+        <details class="faq-item">
+          <summary class="faq-question">${escapeHtml(faq.question)}</summary>
+          <div class="faq-answer"><p>${escapeHtml(faq.answer)}</p></div>
+        </details>`).join('')}`;
+  } catch {
+    faqEntries.classList.add('hidden');
+  }
+}
+
 async function bootstrap() {
   // Restore show/hide from persisted meal items
   const hasItems = state.mealItems.length > 0;
@@ -1693,6 +2132,17 @@ async function bootstrap() {
   } catch (error) {
     searchSummaryEl.textContent = error.message;
   }
+
+  await renderFaqs();
 }
 
 bootstrap();
+
+// Refresh ingredient data when user returns to this tab (e.g. after editing defaults in admin)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    loadRecipes().then(() => {
+      if (state.mealItems.length > 0) renderMealPlate();
+    }).catch(() => {});
+  }
+});

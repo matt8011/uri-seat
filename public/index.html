@@ -34,12 +34,32 @@
           <p class="hero-text">
             Search URI Dining Hall recipes and explore the ingredient mix behind each meal.
           </p>
-          <form id="searchForm" class="searchbar">
-            <label class="sr-only" for="searchInput">Search recipe or ingredient</label>
-            <input id="searchInput" name="q" type="search" placeholder="Search cheeseburger, salad, apple..." autocomplete="off">
-            <button class="button button-primary" type="submit">Search</button>
-          </form>
-          <p id="searchSummary" class="search-summary">Loading catalog...</p>
+          <section class="hero-steps" aria-labelledby="heroStepsTitle">
+            <p id="heroStepsTitle" class="hero-steps-title">How it works</p>
+            <div class="hero-step-list">
+              <article class="hero-step">
+                <span class="hero-step-number">1</span>
+                <div>
+                  <strong>Search recipes</strong>
+                  <p>Use the catalog below to find a dish by name or ingredient.</p>
+                </div>
+              </article>
+              <article class="hero-step">
+                <span class="hero-step-number">2</span>
+                <div>
+                  <strong>Review impacts</strong>
+                  <p>Open a recipe to see the ingredients behind its sustainability profile.</p>
+                </div>
+              </article>
+              <article class="hero-step">
+                <span class="hero-step-number">3</span>
+                <div>
+                  <strong>Build your plate</strong>
+                  <p>Add foods to compare nutrition and environmental factors together.</p>
+                </div>
+              </article>
+            </div>
+          </section>
         </div>
         <aside class="hero-panel">
           <div class="hero-metric">
@@ -67,7 +87,8 @@
           <div id="mealPlatePills" class="meal-header-pills"></div>
           <div class="meal-plate-tabs" role="tablist">
             <button class="tab-btn is-active" data-tab="foods" role="tab" aria-selected="true">Foods</button>
-            <button class="tab-btn" data-tab="nutrients" role="tab" aria-selected="false">Nutrients</button>
+            <button class="tab-btn" data-tab="sustainability" role="tab" aria-selected="false">Sustainability Breakdown</button>
+            <button class="tab-btn" data-tab="nutrients" role="tab" aria-selected="false">Nutrition</button>
             <button class="tab-btn" data-tab="environmental" role="tab" aria-selected="false">Environmental</button>
           </div>
         </div>
@@ -78,6 +99,7 @@
             <div class="plate-col">
               <div id="platePieContainer" class="plate-pie-wrap"></div>
               <div id="platePieLegend" class="pie-legend plate-legend"></div>
+              <p class="pie-footnote">*click on a slice to view details</p>
             </div>
             <aside id="plateInfoPanel" class="plate-info-panel">
               <h3 id="plateInfoTitle" class="plate-info-title">Select a slice</h3>
@@ -98,6 +120,21 @@
         <div id="tabEnv" class="tab-content hidden" role="tabpanel">
           <div id="envCircles4" class="env-circles-4"></div>
         </div>
+
+        <!-- Sustainability Breakdown tab -->
+        <div id="tabSustainability" class="tab-content hidden" role="tabpanel">
+          <div class="foods-layout">
+            <div class="plate-col">
+              <div id="ssPieContainer" class="plate-pie-wrap"></div>
+              <div id="ssPieLegend" class="pie-legend plate-legend"></div>
+              <p class="pie-footnote">*click on a slice to view details</p>
+            </div>
+            <aside id="ssInfoPanel" class="plate-info-panel">
+              <h3 id="ssInfoTitle" class="plate-info-title">Select a slice</h3>
+              <div id="ssInfoContent" class="plate-info-content"></div>
+            </aside>
+          </div>
+        </div>
         <div class="meal-plate-footer">
           <button class="button button-danger meal-clear-btn" type="button" id="clearPlateBtn">Clear Plate</button>
         </div>
@@ -115,8 +152,20 @@
         <div class="catalog-search-wrap">
           <input id="catalogRecipeSearch" class="catalog-search-input" type="search" placeholder="Search recipes by name or ingredient…" autocomplete="off">
         </div>
+        <p id="searchSummary" class="search-summary catalog-summary">Loading catalog...</p>
         <div id="resultsGrid" class="results-grid results-grid-wide"></div>
         <p id="emptyState" class="empty-state hidden">No recipes matched that search.</p>
+      </section>
+      <!-- FAQ -->
+      <section class="faq-section">
+        <div class="faq-entries" id="faqEntries">
+          <div class="faq-header">
+            <p class="panel-kicker">Learn More</p>
+            <h2>Frequently Asked Questions</h2>
+          </div>
+          <div id="faqList"></div>
+        </div>
+
       </section>
     </main>
   </div>

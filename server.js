@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
@@ -11,12 +11,8 @@ const PORT = Number(process.env.PORT || 3000);
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || '';
-const ADMIN_EMAILS = new Set(
-  (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean)
-);
+const ADMIN_EMAILS = parseEmailList(process.env.ADMIN_EMAILS);
+const SUPERADMIN_EMAILS = parseEmailList(process.env.SUPERADMIN_EMAILS);
 
 const DEFAULT_DB_PATH = path.join(__dirname, 'data.sqlite');
 const DB_PATH = path.resolve(process.env.DB_PATH || DEFAULT_DB_PATH);
@@ -27,6 +23,7 @@ const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 14;
 const MAX_ITEMS = 200;
 const MIN_SESSION_SECRET_LENGTH = 32;
 const SQLITE_BUSY_TIMEOUT_MS = Number(process.env.SQLITE_BUSY_TIMEOUT_MS || 5000);
+const DEFAULT_GRAMS_IN_PORTION = 100;
 const FOOD_COLUMNS = [
   'id',
   'name',
@@ -54,7 +51,8 @@ const FOOD_COLUMNS = [
   'eutrophying_emissions',
   'ghg_emissions',
   'land_use',
-  'environmental_composite_score'
+  'environmental_composite_score',
+  'default_grams_in_portion'
 ];
 const RECIPE_COLUMNS = [
   'id',
@@ -65,16 +63,37 @@ const RECIPE_COLUMNS = [
   'updated_at',
   'protein',
   'fiber',
+  'vitamin_a',
+  'vitamin_c',
+  'vitamin_e',
   'calcium',
   'iron',
+  'magnesium',
+  'potassium',
   'saturated_fat',
+  'added_sugar',
   'sodium',
+  'nutrient_rich_food_index',
   'nutrition_composite_score',
+  'freshwater_withdrawals',
+  'stress_weighted_water_use',
+  'acidifying_emissions',
+  'eutrophying_emissions',
+  'ghg_emissions',
+  'land_use',
   'environmental_composite_score',
   'water_use_score',
   'nitrogen_use_score',
   'carbon_use_score',
   'land_use_score'
+];
+const RECIPE_INGREDIENT_COLUMNS = [
+  'id',
+  'recipe_name',
+  'ingredient_name',
+  'grams_in_portion',
+  'created_at',
+  'updated_at'
 ];
 const NUTRITION_NUMERIC_FIELDS = [
   ['protein', 'Protein'],
@@ -99,6 +118,28 @@ const ENVIRONMENTAL_NUMERIC_FIELDS = [
   ['land_use', '2-6 Land Use']
 ];
 
+function parseEmailList(value) {
+  return new Set(
+    String(value || '')
+      .split(',')
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isAdminEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  return ADMIN_EMAILS.has(normalizedEmail) || SUPERADMIN_EMAILS.has(normalizedEmail);
+}
+
+function isSuperAdminEmail(email) {
+  return SUPERADMIN_EMAILS.has(normalizeEmail(email));
+}
+
 function sqlEscape(value) {
   return String(value).replaceAll("'", "''");
 }
@@ -114,22 +155,33 @@ function sqlValue(value) {
 }
 
 async function runSql(sql, jsonMode = false) {
-  const args = [];
-  args.push('-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`);
-  if (jsonMode) {
-    args.push('-json');
-  }
-  args.push(DB_PATH, sql);
+  const args = ['-cmd', `.timeout ${SQLITE_BUSY_TIMEOUT_MS}`];
+  if (jsonMode) args.push('-json');
+  args.push(DB_PATH);
 
-  const { stdout } = await execFileAsync('sqlite3', args, {
-    maxBuffer: 1024 * 1024 * 20
+  return new Promise((resolve, reject) => {
+    const child = spawn('sqlite3', args, { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        const err = new Error(`sqlite3 exited ${code}: ${stderr.trim()}`);
+        err.code = code;
+        return reject(err);
+      }
+      if (!jsonMode) return resolve(stdout);
+      resolve(stdout.trim() ? JSON.parse(stdout) : []);
+    });
+
+    child.on('error', reject);
+
+    child.stdin.write(sql, 'utf8');
+    child.stdin.end();
   });
-
-  if (!jsonMode) {
-    return stdout;
-  }
-
-  return stdout.trim() ? JSON.parse(stdout) : [];
 }
 
 async function getSql(sql) {
@@ -185,7 +237,8 @@ function createFoodEntriesTableSql() {
       eutrophying_emissions REAL,
       ghg_emissions REAL,
       land_use REAL,
-      environmental_composite_score REAL
+      environmental_composite_score REAL,
+      default_grams_in_portion REAL
     );
 
     CREATE INDEX IF NOT EXISTS idx_food_entries_name ON food_entries(name);
@@ -203,11 +256,24 @@ function createRecipesTableSql() {
       updated_at TEXT NOT NULL,
       protein REAL,
       fiber REAL,
+      vitamin_a REAL,
+      vitamin_c REAL,
+      vitamin_e REAL,
       calcium REAL,
       iron REAL,
+      magnesium REAL,
+      potassium REAL,
       saturated_fat REAL,
+      added_sugar REAL,
       sodium REAL,
+      nutrient_rich_food_index REAL,
       nutrition_composite_score REAL,
+      freshwater_withdrawals REAL,
+      stress_weighted_water_use REAL,
+      acidifying_emissions REAL,
+      eutrophying_emissions REAL,
+      ghg_emissions REAL,
+      land_use REAL,
       environmental_composite_score REAL,
       water_use_score REAL,
       nitrogen_use_score REAL,
@@ -216,6 +282,24 @@ function createRecipesTableSql() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_recipes_name ON recipes(name);
+  `;
+}
+
+function createRecipeIngredientsTableSql() {
+  return `
+    CREATE TABLE IF NOT EXISTS recipe_ingredients (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      recipe_name TEXT NOT NULL,
+      ingredient_name TEXT NOT NULL,
+      grams_in_portion REAL NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_recipe_name
+      ON recipe_ingredients(recipe_name);
+    CREATE INDEX IF NOT EXISTS idx_recipe_ingredients_ingredient_name
+      ON recipe_ingredients(ingredient_name);
   `;
 }
 
@@ -228,6 +312,13 @@ async function ensureFoodEntriesSchema() {
   `);
 
   if (table) {
+    // Migrate: add new columns before the strict schema check so existing data is preserved
+    const existingCols = await allSql('PRAGMA table_info(food_entries);');
+    const existingColNames = new Set(existingCols.map((c) => String(c.name)));
+    if (!existingColNames.has('default_grams_in_portion')) {
+      await runSql('ALTER TABLE food_entries ADD COLUMN default_grams_in_portion REAL;');
+    }
+
     const columns = await allSql('PRAGMA table_info(food_entries);');
     const actualColumns = columns.map((column) => String(column.name));
     const hasExpectedColumns =
@@ -265,6 +356,29 @@ async function ensureRecipesSchema() {
   await runSql(createRecipesTableSql());
 }
 
+async function ensureRecipeIngredientsSchema() {
+  const table = await getSql(`
+    SELECT name
+    FROM sqlite_master
+    WHERE type = 'table' AND name = 'recipe_ingredients'
+    LIMIT 1;
+  `);
+
+  if (table) {
+    const columns = await allSql('PRAGMA table_info(recipe_ingredients);');
+    const actualColumns = columns.map((column) => String(column.name));
+    const hasExpectedColumns =
+      actualColumns.length === RECIPE_INGREDIENT_COLUMNS.length &&
+      RECIPE_INGREDIENT_COLUMNS.every((name, index) => actualColumns[index] === name);
+
+    if (!hasExpectedColumns) {
+      await runSql('DROP TABLE IF EXISTS recipe_ingredients;');
+    }
+  }
+
+  await runSql(createRecipeIngredientsTableSql());
+}
+
 async function initializeDatabase() {
   ensureDatabasePath();
 
@@ -295,9 +409,25 @@ async function initializeDatabase() {
 
   await ensureFoodEntriesSchema();
   await ensureRecipesSchema();
+  await ensureRecipeIngredientsSchema();
+  await ensureFaqsSchema();
   await backfillCalculatedNutritionScores();
   await repopulateRecipes();
 }
+
+async function ensureFaqsSchema() {
+  await runSql(`
+    CREATE TABLE IF NOT EXISTS faqs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      question TEXT NOT NULL,
+      answer TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
+}
+
 
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
@@ -437,6 +567,9 @@ function validateConfiguration() {
   if (ADMIN_EMAILS.size === 0) {
     problems.push('ADMIN_EMAILS must include at least one admin email address.');
   }
+  if (SUPERADMIN_EMAILS.size === 0) {
+    problems.push('SUPERADMIN_EMAILS must include at least one super admin email address.');
+  }
   if (!Number.isFinite(PORT) || PORT <= 0) {
     problems.push('PORT must be a positive number.');
   }
@@ -459,7 +592,8 @@ function serializeUser(user) {
     email: user.email,
     name: user.name,
     picture: user.picture,
-    isAdmin: ADMIN_EMAILS.has(String(user.email || '').toLowerCase())
+    isAdmin: isAdminEmail(user.email),
+    isSuperAdmin: isSuperAdminEmail(user.email)
   };
 }
 
@@ -489,6 +623,11 @@ function normalizeRecipes(value) {
   return [];
 }
 
+function normalizeNonEmptyString(value) {
+  const normalized = String(value || '').trim();
+  return normalized || null;
+}
+
 function valueOrZero(value) {
   return value === null || value === undefined ? 0 : Number(value);
 }
@@ -509,6 +648,14 @@ function averageMetric(values) {
   }
 
   return roundMetric(numbers.reduce((sum, value) => sum + value, 0) / numbers.length);
+}
+
+function weightedAverageMetric(entries) {
+  const valid = entries.filter(({ value, weight }) => isFiniteNumber(value) && isFiniteNumber(weight));
+  if (valid.length === 0) return null;
+  const totalWeight = valid.reduce((sum, { weight }) => sum + Number(weight), 0);
+  if (totalWeight === 0) return null;
+  return roundMetric(valid.reduce((sum, { value, weight }) => sum + Number(value) * Number(weight), 0) / totalWeight);
 }
 
 function sumMetric(values) {
@@ -555,6 +702,34 @@ function calculateNutritionCompositeScore(index) {
   return 5;
 }
 
+// Quintile bounds from Jung et al. (2024) Nutrition Journal Table 1.
+// Scored against per-kg values. Static — never derive from DB.
+const ENV_QUINTILES = {
+  freshwater_withdrawals:    { bounds: [161.4, 263.7, 377.1, 549.9] },
+  stress_weighted_water_use: { bounds: [5601,  9079,  12806, 18475] },
+  acidifying_emissions:      { bounds: [9.3,   15.4,  22.6,  34.4]  },
+  eutrophying_emissions:     { bounds: [6.1,   10.2,  16.3,  28.0]  },
+  ghg_emissions:             { bounds: [1.4,   2.2,   3.4,   5.8]   },
+  land_use:                  { bounds: [2.1,   3.7,   5.9,   13.0]  }
+};
+
+function scoreEnvIndicator(indicator, rawValue) {
+  const [b0, b1, b2, b3] = ENV_QUINTILES[indicator].bounds;
+  if (rawValue <= b0) return 5;
+  if (rawValue <= b1) return 4;
+  if (rawValue <= b2) return 3;
+  if (rawValue <= b3) return 2;
+  return 1;
+}
+
+function applyEnvDimensionWeights(ghg, fw, sww, acid, eutro, land) {
+  const dimCarbon   = ghg;
+  const dimWater    = (fw + sww) / 2;
+  const dimNitrogen = (acid + eutro) / 2;
+  const dimLand     = land;
+  return roundMetric((dimCarbon + dimWater + dimNitrogen + dimLand) / 4);
+}
+
 function calculateEnvironmentalCompositeScore(item) {
   const values = {
     freshwater_withdrawals: item.freshwater_withdrawals,
@@ -578,16 +753,46 @@ function calculateEnvironmentalCompositeScore(item) {
     scoreLandUse
   } = calculateEnvironmentalIndicatorScores(values);
 
-  return roundMetric(
-    (
-      scoreFreshwaterWithdrawals +
-      scoreStressWeightedWaterUse +
-      scoreAcidifyingEmissions +
-      scoreEutrophyingEmissions +
-      scoreGhgEmissions +
-      scoreLandUse
-    ) / 6
+  return applyEnvDimensionWeights(
+    scoreGhgEmissions,
+    scoreFreshwaterWithdrawals,
+    scoreStressWeightedWaterUse,
+    scoreAcidifyingEmissions,
+    scoreEutrophyingEmissions,
+    scoreLandUse
   );
+}
+
+function calculateRecipeEnvCompositeScore(ingredients) {
+  const valid = ingredients.filter(({ grams_in_portion, ingredient }) =>
+    isFiniteNumber(grams_in_portion) &&
+    ingredient &&
+    isFiniteNumber(ingredient.freshwater_withdrawals) &&
+    isFiniteNumber(ingredient.stress_weighted_water_use) &&
+    isFiniteNumber(ingredient.acidifying_emissions) &&
+    isFiniteNumber(ingredient.eutrophying_emissions) &&
+    isFiniteNumber(ingredient.ghg_emissions) &&
+    isFiniteNumber(ingredient.land_use)
+  );
+  if (valid.length === 0) return null;
+  const totalGrams = valid.reduce((sum, e) => sum + Number(e.grams_in_portion), 0);
+  if (totalGrams === 0) return null;
+
+  const weightedSum = valid.reduce((sum, entry) => {
+    const g = Number(entry.grams_in_portion);
+    const ing = entry.ingredient;
+    const envComposite_i = applyEnvDimensionWeights(
+      scoreEnvIndicator('ghg_emissions',             Number(ing.ghg_emissions)),
+      scoreEnvIndicator('freshwater_withdrawals',    Number(ing.freshwater_withdrawals)),
+      scoreEnvIndicator('stress_weighted_water_use', Number(ing.stress_weighted_water_use)),
+      scoreEnvIndicator('acidifying_emissions',      Number(ing.acidifying_emissions)),
+      scoreEnvIndicator('eutrophying_emissions',     Number(ing.eutrophying_emissions)),
+      scoreEnvIndicator('land_use',                  Number(ing.land_use))
+    );
+    return sum + envComposite_i * g;
+  }, 0);
+
+  return roundMetric(weightedSum / totalGrams);
 }
 
 function calculateEnvironmentalIndicatorScores(item) {
@@ -771,6 +976,10 @@ function deserializeRow(row) {
       row.environmental_composite_score === null
         ? null
         : Number(row.environmental_composite_score),
+    default_grams_in_portion:
+      row.default_grams_in_portion === null || row.default_grams_in_portion === undefined
+        ? null
+        : Number(row.default_grams_in_portion),
     ...calculateEnvironmentalFactorScores({
       freshwater_withdrawals:
         row.freshwater_withdrawals === null ? null : Number(row.freshwater_withdrawals),
@@ -801,12 +1010,30 @@ function deserializeRecipeRow(row) {
     updated_at: row.updated_at,
     protein: row.protein === null ? null : Number(row.protein),
     fiber: row.fiber === null ? null : Number(row.fiber),
+    vitamin_a: row.vitamin_a === null ? null : Number(row.vitamin_a),
+    vitamin_c: row.vitamin_c === null ? null : Number(row.vitamin_c),
+    vitamin_e: row.vitamin_e === null ? null : Number(row.vitamin_e),
     calcium: row.calcium === null ? null : Number(row.calcium),
     iron: row.iron === null ? null : Number(row.iron),
+    magnesium: row.magnesium === null ? null : Number(row.magnesium),
+    potassium: row.potassium === null ? null : Number(row.potassium),
     saturated_fat: row.saturated_fat === null ? null : Number(row.saturated_fat),
+    added_sugar: row.added_sugar === null ? null : Number(row.added_sugar),
     sodium: row.sodium === null ? null : Number(row.sodium),
+    nutrient_rich_food_index:
+      row.nutrient_rich_food_index === null ? null : Number(row.nutrient_rich_food_index),
     nutrition_composite_score:
       row.nutrition_composite_score === null ? null : Number(row.nutrition_composite_score),
+    freshwater_withdrawals:
+      row.freshwater_withdrawals === null ? null : Number(row.freshwater_withdrawals),
+    stress_weighted_water_use:
+      row.stress_weighted_water_use === null ? null : Number(row.stress_weighted_water_use),
+    acidifying_emissions:
+      row.acidifying_emissions === null ? null : Number(row.acidifying_emissions),
+    eutrophying_emissions:
+      row.eutrophying_emissions === null ? null : Number(row.eutrophying_emissions),
+    ghg_emissions: row.ghg_emissions === null ? null : Number(row.ghg_emissions),
+    land_use: row.land_use === null ? null : Number(row.land_use),
     environmental_composite_score:
       row.environmental_composite_score === null
         ? null
@@ -816,6 +1043,21 @@ function deserializeRecipeRow(row) {
       row.nitrogen_use_score === null ? null : Number(row.nitrogen_use_score),
     carbon_use_score: row.carbon_use_score === null ? null : Number(row.carbon_use_score),
     land_use_score: row.land_use_score === null ? null : Number(row.land_use_score)
+  };
+}
+
+function deserializeRecipeIngredientRow(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: Number(row.id),
+    recipe_name: row.recipe_name,
+    ingredient_name: row.ingredient_name,
+    grams_in_portion: row.grams_in_portion === null ? null : Number(row.grams_in_portion),
+    created_at: row.created_at,
+    updated_at: row.updated_at
   };
 }
 
@@ -831,10 +1073,6 @@ function validateFoodPayload(body) {
 
   if (!name) {
     return { error: 'Food item name is required.' };
-  }
-
-  if (taggedRecipes.length === 0) {
-    return { error: 'Tagged recipes are required.' };
   }
 
   for (const [key, label] of [...NUTRITION_NUMERIC_FIELDS, ...ENVIRONMENTAL_NUMERIC_FIELDS]) {
@@ -868,7 +1106,8 @@ function validateFoodPayload(body) {
       eutrophying_emissions: normalizedNumbers.eutrophying_emissions,
       ghg_emissions: normalizedNumbers.ghg_emissions,
       land_use: normalizedNumbers.land_use,
-      environmental_composite_score: null
+      environmental_composite_score: null,
+      default_grams_in_portion: normalizeNumber(body.default_grams_in_portion)
     })
   };
 }
@@ -919,7 +1158,8 @@ function foodInsertSql(item, timestamp, explicitCreatedAt = null) {
       eutrophying_emissions,
       ghg_emissions,
       land_use,
-      environmental_composite_score
+      environmental_composite_score,
+      default_grams_in_portion
     ) VALUES (
       ${sqlValue(item.name)},
       ${sqlValue(item.sustainability_index)},
@@ -946,7 +1186,8 @@ function foodInsertSql(item, timestamp, explicitCreatedAt = null) {
       ${sqlValue(item.eutrophying_emissions)},
       ${sqlValue(item.ghg_emissions)},
       ${sqlValue(item.land_use)},
-      ${sqlValue(item.environmental_composite_score)}
+      ${sqlValue(item.environmental_composite_score)},
+      ${sqlValue(item.default_grams_in_portion ?? null)}
     );
   `;
 }
@@ -978,9 +1219,18 @@ function foodUpdateSql(id, item, timestamp) {
         eutrophying_emissions = ${sqlValue(item.eutrophying_emissions)},
         ghg_emissions = ${sqlValue(item.ghg_emissions)},
         land_use = ${sqlValue(item.land_use)},
-        environmental_composite_score = ${sqlValue(item.environmental_composite_score)}
+        environmental_composite_score = ${sqlValue(item.environmental_composite_score)},
+        default_grams_in_portion = ${sqlValue(item.default_grams_in_portion ?? null)}
     WHERE id = ${sqlValue(id)};
   `;
+}
+
+function scalePerPortionMetric(value, gramsInPortion) {
+  if (!isFiniteNumber(value) || !isFiniteNumber(gramsInPortion)) {
+    return null;
+  }
+
+  return Number(value) * Number(gramsInPortion) / 100;
 }
 
 async function queryItems(search = '') {
@@ -1004,6 +1254,15 @@ async function queryItems(search = '') {
 
   const rows = await allSql(sql);
   return rows.map(deserializeRow);
+}
+
+async function queryAvgGramsPerIngredient() {
+  const rows = await allSql(`
+    SELECT lower(ingredient_name) AS key, AVG(grams_in_portion) AS avg_grams
+    FROM recipe_ingredients
+    GROUP BY lower(ingredient_name);
+  `);
+  return new Map(rows.map((r) => [r.key, Number(r.avg_grams)]));
 }
 
 async function getItemById(id) {
@@ -1087,7 +1346,7 @@ async function queryRecipeScoresByNames(recipeNames) {
   );
 }
 
-function buildRecipeRows(items, timestamp) {
+function buildLegacyRecipeRows(items, timestamp) {
   const groupedRecipes = new Map();
 
   for (const item of items) {
@@ -1116,7 +1375,9 @@ function buildRecipeRows(items, timestamp) {
     .map((recipe) => {
       const taggedIngredients = recipe.ingredients.map((ingredient) => ({
         name: ingredient.name,
-        sustainability_index: ingredient.sustainability_index
+        sustainability_index: ingredient.sustainability_index,
+        nutrition_composite_score: ingredient.nutrition_composite_score ?? null,
+        environmental_composite_score: ingredient.environmental_composite_score ?? null
       }));
       const nutritionCompositeScore = averageMetric(
         recipe.ingredients.map((ingredient) => ingredient.nutrition_composite_score)
@@ -1136,13 +1397,36 @@ function buildRecipeRows(items, timestamp) {
         updated_at: timestamp,
         protein: sumMetric(recipe.ingredients.map((ingredient) => ingredient.protein)),
         fiber: sumMetric(recipe.ingredients.map((ingredient) => ingredient.fiber)),
+        vitamin_a: sumMetric(recipe.ingredients.map((ingredient) => ingredient.vitamin_a)),
+        vitamin_c: sumMetric(recipe.ingredients.map((ingredient) => ingredient.vitamin_c)),
+        vitamin_e: sumMetric(recipe.ingredients.map((ingredient) => ingredient.vitamin_e)),
         calcium: sumMetric(recipe.ingredients.map((ingredient) => ingredient.calcium)),
         iron: sumMetric(recipe.ingredients.map((ingredient) => ingredient.iron)),
+        magnesium: sumMetric(recipe.ingredients.map((ingredient) => ingredient.magnesium)),
+        potassium: sumMetric(recipe.ingredients.map((ingredient) => ingredient.potassium)),
         saturated_fat: sumMetric(
           recipe.ingredients.map((ingredient) => ingredient.saturated_fat)
         ),
+        added_sugar: sumMetric(
+          recipe.ingredients.map((ingredient) => ingredient.added_sugar)
+        ),
         sodium: sumMetric(recipe.ingredients.map((ingredient) => ingredient.sodium)),
+        nutrient_rich_food_index: null,
         nutrition_composite_score: nutritionCompositeScore,
+        freshwater_withdrawals: sumMetric(
+          recipe.ingredients.map((ingredient) => ingredient.freshwater_withdrawals)
+        ),
+        stress_weighted_water_use: sumMetric(
+          recipe.ingredients.map((ingredient) => ingredient.stress_weighted_water_use)
+        ),
+        acidifying_emissions: sumMetric(
+          recipe.ingredients.map((ingredient) => ingredient.acidifying_emissions)
+        ),
+        eutrophying_emissions: sumMetric(
+          recipe.ingredients.map((ingredient) => ingredient.eutrophying_emissions)
+        ),
+        ghg_emissions: sumMetric(recipe.ingredients.map((ingredient) => ingredient.ghg_emissions)),
+        land_use: sumMetric(recipe.ingredients.map((ingredient) => ingredient.land_use)),
         environmental_composite_score: environmentalCompositeScore,
         water_use_score: averageMetric(
           recipe.ingredients.map((ingredient) => ingredient.water_use_score)
@@ -1161,6 +1445,213 @@ function buildRecipeRows(items, timestamp) {
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
 }
 
+function buildPortionSizedRecipeRows(items, recipeIngredients, timestamp) {
+  const ingredientByName = new Map(
+    items.map((item) => [normalizeRecipeKey(item.name), item])
+  );
+  const groupedRecipes = new Map();
+
+  for (const row of recipeIngredients) {
+    const normalizedKey = normalizeRecipeKey(row.recipe_name);
+    if (!groupedRecipes.has(normalizedKey)) {
+      groupedRecipes.set(normalizedKey, {
+        name: row.recipe_name,
+        ingredients: []
+      });
+    }
+
+    const ingredient = ingredientByName.get(normalizeRecipeKey(row.ingredient_name)) || null;
+    groupedRecipes.get(normalizedKey).ingredients.push({
+      ...row,
+      grams_in_portion: row.grams_in_portion ?? ingredient?.default_grams_in_portion ?? DEFAULT_GRAMS_IN_PORTION,
+      ingredient
+    });
+  }
+
+  return Array.from(groupedRecipes.values())
+    .map((recipe) => {
+      const taggedIngredients = recipe.ingredients
+        .slice()
+        .sort((left, right) => Number(right.grams_in_portion) - Number(left.grams_in_portion))
+        .map((entry) => ({
+          name: entry.ingredient_name,
+          grams_in_portion: entry.grams_in_portion,
+          sustainability_index: entry.ingredient?.sustainability_index ?? null,
+          nutrition_composite_score: entry.ingredient?.nutrition_composite_score ?? null,
+          environmental_composite_score: entry.ingredient?.environmental_composite_score ?? null
+        }));
+
+      const hasMissingIngredient = recipe.ingredients.some((entry) => !entry.ingredient);
+      if (hasMissingIngredient) {
+        return {
+          name: recipe.name,
+          sustainability_index: null,
+          tagged_ingredients: taggedIngredients,
+          created_at: timestamp,
+          updated_at: timestamp,
+          protein: null,
+          fiber: null,
+          vitamin_a: null,
+          vitamin_c: null,
+          vitamin_e: null,
+          calcium: null,
+          iron: null,
+          magnesium: null,
+          potassium: null,
+          saturated_fat: null,
+          added_sugar: null,
+          sodium: null,
+          nutrient_rich_food_index: null,
+          nutrition_composite_score: null,
+          freshwater_withdrawals: null,
+          stress_weighted_water_use: null,
+          acidifying_emissions: null,
+          eutrophying_emissions: null,
+          ghg_emissions: null,
+          land_use: null,
+          environmental_composite_score: null,
+          water_use_score: null,
+          nitrogen_use_score: null,
+          carbon_use_score: null,
+          land_use_score: null
+        };
+      }
+
+      const base = {
+        name: recipe.name,
+        tagged_ingredients: taggedIngredients,
+        created_at: timestamp,
+        updated_at: timestamp,
+        protein: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.protein, entry.grams_in_portion)
+          )
+        ),
+        fiber: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.fiber, entry.grams_in_portion)
+          )
+        ),
+        vitamin_a: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.vitamin_a, entry.grams_in_portion)
+          )
+        ),
+        vitamin_c: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.vitamin_c, entry.grams_in_portion)
+          )
+        ),
+        vitamin_e: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.vitamin_e, entry.grams_in_portion)
+          )
+        ),
+        calcium: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.calcium, entry.grams_in_portion)
+          )
+        ),
+        iron: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.iron, entry.grams_in_portion)
+          )
+        ),
+        magnesium: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.magnesium, entry.grams_in_portion)
+          )
+        ),
+        potassium: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.potassium, entry.grams_in_portion)
+          )
+        ),
+        saturated_fat: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.saturated_fat, entry.grams_in_portion)
+          )
+        ),
+        added_sugar: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.added_sugar, entry.grams_in_portion)
+          )
+        ),
+        sodium: sumMetric(
+          recipe.ingredients.map((entry) =>
+            scalePerPortionMetric(entry.ingredient.sodium, entry.grams_in_portion)
+          )
+        ),
+        freshwater_withdrawals: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.freshwater_withdrawals)
+        ),
+        stress_weighted_water_use: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.stress_weighted_water_use)
+        ),
+        acidifying_emissions: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.acidifying_emissions)
+        ),
+        eutrophying_emissions: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.eutrophying_emissions)
+        ),
+        ghg_emissions: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.ghg_emissions)
+        ),
+        land_use: sumMetric(
+          recipe.ingredients.map((entry) => entry.ingredient.land_use)
+        )
+      };
+
+      const environmentalCompositeScore = calculateRecipeEnvCompositeScore(recipe.ingredients);
+      const waterUseScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.water_use_score)
+      );
+      const nitrogenUseScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.nitrogen_use_score)
+      );
+      const carbonUseScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.carbon_use_score)
+      );
+      const landUseScore = averageMetric(
+        recipe.ingredients.map((entry) => entry.ingredient.land_use_score)
+      );
+
+      const nutritionCompositeScore = (() => {
+        const entries = recipe.ingredients
+          .filter(({ grams_in_portion }) => isFiniteNumber(grams_in_portion));
+        const totalWeight = entries.reduce((sum, e) => sum + Number(e.grams_in_portion), 0);
+        if (totalWeight === 0) return null;
+        const weightedSum = entries.reduce((sum, e) => {
+          if (!isFiniteNumber(e.ingredient.nutrient_rich_food_index)) return sum;
+          const portionNrfi = Number(e.ingredient.nutrient_rich_food_index) * Number(e.grams_in_portion) / 100;
+          return sum + calculateNutritionCompositeScore(portionNrfi) * Number(e.grams_in_portion);
+        }, 0);
+        return roundMetric(weightedSum / totalWeight);
+      })();
+
+      return {
+        ...base,
+        nutrient_rich_food_index: null,
+        nutrition_composite_score: nutritionCompositeScore,
+        environmental_composite_score: environmentalCompositeScore,
+        water_use_score: waterUseScore,
+        nitrogen_use_score: nitrogenUseScore,
+        carbon_use_score: carbonUseScore,
+        land_use_score: landUseScore,
+        sustainability_index: calculateSustainabilityIndex(nutritionCompositeScore, environmentalCompositeScore)
+      };
+    })
+    .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
+}
+
+function buildRecipeRows(items, recipeIngredients, timestamp) {
+  if (recipeIngredients.length > 0) {
+    return buildPortionSizedRecipeRows(items, recipeIngredients, timestamp);
+  }
+
+  return buildLegacyRecipeRows(items, timestamp);
+}
+
 function recipeInsertSql(recipe) {
   return `
     INSERT INTO recipes (
@@ -1171,11 +1662,24 @@ function recipeInsertSql(recipe) {
       updated_at,
       protein,
       fiber,
+      vitamin_a,
+      vitamin_c,
+      vitamin_e,
       calcium,
       iron,
+      magnesium,
+      potassium,
       saturated_fat,
+      added_sugar,
       sodium,
+      nutrient_rich_food_index,
       nutrition_composite_score,
+      freshwater_withdrawals,
+      stress_weighted_water_use,
+      acidifying_emissions,
+      eutrophying_emissions,
+      ghg_emissions,
+      land_use,
       environmental_composite_score,
       water_use_score,
       nitrogen_use_score,
@@ -1189,11 +1693,24 @@ function recipeInsertSql(recipe) {
       ${sqlValue(recipe.updated_at)},
       ${sqlValue(recipe.protein)},
       ${sqlValue(recipe.fiber)},
+      ${sqlValue(recipe.vitamin_a)},
+      ${sqlValue(recipe.vitamin_c)},
+      ${sqlValue(recipe.vitamin_e)},
       ${sqlValue(recipe.calcium)},
       ${sqlValue(recipe.iron)},
+      ${sqlValue(recipe.magnesium)},
+      ${sqlValue(recipe.potassium)},
       ${sqlValue(recipe.saturated_fat)},
+      ${sqlValue(recipe.added_sugar)},
       ${sqlValue(recipe.sodium)},
+      ${sqlValue(recipe.nutrient_rich_food_index)},
       ${sqlValue(recipe.nutrition_composite_score)},
+      ${sqlValue(recipe.freshwater_withdrawals)},
+      ${sqlValue(recipe.stress_weighted_water_use)},
+      ${sqlValue(recipe.acidifying_emissions)},
+      ${sqlValue(recipe.eutrophying_emissions)},
+      ${sqlValue(recipe.ghg_emissions)},
+      ${sqlValue(recipe.land_use)},
       ${sqlValue(recipe.environmental_composite_score)},
       ${sqlValue(recipe.water_use_score)},
       ${sqlValue(recipe.nitrogen_use_score)},
@@ -1206,8 +1723,11 @@ function recipeInsertSql(recipe) {
 async function repopulateRecipes() {
   const ingredients = (await allSql('SELECT * FROM food_entries ORDER BY id ASC;'))
     .map(deserializeRow);
+  const recipeIngredients = (await allSql(
+    'SELECT * FROM recipe_ingredients ORDER BY recipe_name COLLATE NOCASE ASC, ingredient_name COLLATE NOCASE ASC, id ASC;'
+  )).map(deserializeRecipeIngredientRow);
   const now = new Date().toISOString();
-  const recipes = buildRecipeRows(ingredients, now);
+  const recipes = buildRecipeRows(ingredients, recipeIngredients, now);
 
   let sql = 'DELETE FROM recipes;';
   if (recipes.length > 0) {
@@ -1219,16 +1739,19 @@ async function repopulateRecipes() {
   return {
     recipes: await queryRecipes(),
     ingredientCount: ingredients.length,
-    recipeCount: recipes.length
+    recipeIngredientCount: recipeIngredients.length,
+    recipeCount: recipes.length,
+    mode: recipeIngredients.length > 0 ? 'portion-sized' : 'tagged-ingredient-fallback'
   };
 }
 
 async function clearDatabase() {
   await runSql(`
     DELETE FROM food_entries;
+    DELETE FROM recipe_ingredients;
     DELETE FROM recipes;
     DELETE FROM sqlite_sequence
-    WHERE name IN ('food_entries', 'recipes');
+    WHERE name IN ('food_entries', 'recipe_ingredients', 'recipes');
   `);
 
   return {
@@ -1240,18 +1763,23 @@ async function clearDatabase() {
 async function clearIngredients() {
   await runSql(`
     DELETE FROM food_entries;
+    DELETE FROM recipe_ingredients;
+    DELETE FROM recipes;
     DELETE FROM sqlite_sequence WHERE name='food_entries';
+    DELETE FROM sqlite_sequence WHERE name='recipe_ingredients';
+    DELETE FROM sqlite_sequence WHERE name='recipes';
   `);
-  await repopulateRecipes();
-  return { foodEntryCount: 0, recipeCount: 0 };
+  return { foodEntryCount: 0, recipeIngredientCount: 0, recipeCount: 0 };
 }
 
 async function clearRecipesOnly() {
   await runSql(`
+    DELETE FROM recipe_ingredients;
     DELETE FROM recipes;
+    DELETE FROM sqlite_sequence WHERE name='recipe_ingredients';
     DELETE FROM sqlite_sequence WHERE name='recipes';
   `);
-  return { recipeCount: 0 };
+  return { recipeIngredientCount: 0, recipeCount: 0 };
 }
 
 async function cleanRecipeTagFromIngredients(recipeName) {
@@ -1265,6 +1793,197 @@ async function cleanRecipeTagFromIngredients(recipeName) {
         `UPDATE food_entries SET tagged_recipes = ${sqlValue(JSON.stringify(filtered))} WHERE id = ${sqlValue(Number(row.id))};`
       );
     }
+  }
+}
+
+const RECIPE_IMPORTABLE_COLUMNS = new Set([
+  'recipe_name',
+  'ingredient_name',
+  'grams_in_portion'
+]);
+
+function applyRecipeColumnMapping(record, columnMapping) {
+  const mapped = {};
+  for (const [csvHeader, dbColumn] of Object.entries(columnMapping)) {
+    if (!dbColumn || !RECIPE_IMPORTABLE_COLUMNS.has(dbColumn)) continue;
+    const raw = record[csvHeader];
+    mapped[dbColumn] = (raw === undefined || raw === null || String(raw).trim() === '')
+      ? null
+      : raw;
+  }
+  return mapped;
+}
+
+function recipeIngredientInsertSql(item, timestamp, explicitCreatedAt = null) {
+  const createdAt = explicitCreatedAt || timestamp;
+
+  return `
+    INSERT INTO recipe_ingredients (
+      recipe_name,
+      ingredient_name,
+      grams_in_portion,
+      created_at,
+      updated_at
+    ) VALUES (
+      ${sqlValue(item.recipe_name)},
+      ${sqlValue(item.ingredient_name)},
+      ${sqlValue(item.grams_in_portion)},
+      ${sqlValue(createdAt)},
+      ${sqlValue(timestamp)}
+    );
+  `;
+}
+
+function recipeIngredientUpdateSql(id, item, timestamp) {
+  return `
+    UPDATE recipe_ingredients
+    SET recipe_name = ${sqlValue(item.recipe_name)},
+        ingredient_name = ${sqlValue(item.ingredient_name)},
+        grams_in_portion = ${sqlValue(item.grams_in_portion)},
+        updated_at = ${sqlValue(timestamp)}
+    WHERE id = ${sqlValue(id)};
+  `;
+}
+
+async function handleRecipeCsvImport(req, res) {
+  if (!await requireAdmin(req, res)) {
+    return;
+  }
+
+  try {
+    const contentType = String(req.headers['content-type'] || '').toLowerCase();
+    let csvText = '';
+    let replaceExisting = false;
+    let columnMapping = null;
+
+    if (contentType.includes('application/json')) {
+      const body = await parseJsonBody(req);
+      csvText = String(body.csvText || '');
+      replaceExisting = Boolean(body.replaceExisting);
+      columnMapping = body.columnMapping && typeof body.columnMapping === 'object'
+        ? body.columnMapping
+        : null;
+    } else {
+      csvText = await parseTextBody(req);
+      replaceExisting = String(req.headers['x-replace-existing'] || '').toLowerCase() === 'true';
+    }
+
+    if (!csvText.trim()) {
+      return sendJson(res, 400, { error: 'CSV content is required.' });
+    }
+
+    const records = parseCsvRecords(csvText);
+    if (records.length === 0) {
+      return sendJson(res, 400, { error: 'CSV file only contained a header row.' });
+    }
+
+    if (!columnMapping) {
+      columnMapping = {};
+      for (const header of Object.keys(records[0])) {
+        if (RECIPE_IMPORTABLE_COLUMNS.has(header)) {
+          columnMapping[header] = header;
+        }
+      }
+    }
+
+    const now = new Date().toISOString();
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+    const warnings = [];
+
+    if (replaceExisting) {
+      await runSql('DELETE FROM recipe_ingredients;');
+    }
+
+    // Pre-load known names for validation
+    const knownIngredientRows = await allSql('SELECT name FROM food_entries;');
+    const knownIngredients = new Set(knownIngredientRows.map((r) => r.name.toLowerCase()));
+
+    let knownRecipes = null;
+    if (!replaceExisting) {
+      const knownRecipeRows = await allSql('SELECT DISTINCT recipe_name FROM recipe_ingredients;');
+      // Only enforce recipe validation when there are existing recipes to validate against
+      if (knownRecipeRows.length > 0) {
+        knownRecipes = new Set(knownRecipeRows.map((r) => r.recipe_name.toLowerCase()));
+      }
+    }
+
+    for (let index = 0; index < records.length; index += 1) {
+      const mapped = applyRecipeColumnMapping(records[index], columnMapping);
+      const recipeName = normalizeNonEmptyString(mapped.recipe_name);
+      const ingredientName = normalizeNonEmptyString(mapped.ingredient_name);
+      const gramsInPortion = normalizeNumber(mapped.grams_in_portion);
+
+      if (!recipeName || !ingredientName) {
+        skipped += 1;
+        continue;
+      }
+
+      // Null grams = leave at default, skip silently
+      if (gramsInPortion === null) {
+        skipped += 1;
+        continue;
+      }
+
+      if (gramsInPortion < 0) {
+        return sendJson(res, 400, {
+          error: `Invalid grams_in_portion for ${recipeName} / ${ingredientName}.`
+        });
+      }
+
+      // Validate ingredient_name against food_entries
+      if (!knownIngredients.has(ingredientName.toLowerCase())) {
+        warnings.push(`TYPO in field ingredient_name: ${ingredientName}`);
+        skipped += 1;
+        continue;
+      }
+
+      // Validate recipe_name against existing recipes (only when not replacing)
+      if (knownRecipes !== null && !knownRecipes.has(recipeName.toLowerCase())) {
+        warnings.push(`TYPO in field recipe_name: ${recipeName}`);
+        skipped += 1;
+        continue;
+      }
+
+      const item = {
+        recipe_name: recipeName,
+        ingredient_name: ingredientName,
+        grams_in_portion: gramsInPortion
+      };
+      const existing = await getSql(`
+        SELECT *
+        FROM recipe_ingredients
+        WHERE lower(recipe_name) = lower(${sqlValue(recipeName)})
+          AND lower(ingredient_name) = lower(${sqlValue(ingredientName)})
+        LIMIT 1;
+      `);
+
+      if (existing && !replaceExisting) {
+        await runSql(recipeIngredientUpdateSql(Number(existing.id), item, now));
+        updated += 1;
+      } else {
+        await runSql(recipeIngredientInsertSql(item, now));
+        inserted += 1;
+      }
+    }
+
+    const repopulated = await repopulateRecipes();
+
+    return sendJson(res, 200, {
+      inserted,
+      updated,
+      skipped,
+      warnings,
+      recipeCount: repopulated.recipeCount,
+      recipeIngredientCount: repopulated.recipeIngredientCount,
+      mode: repopulated.mode
+    });
+  } catch (error) {
+    console.error(error);
+    return sendJson(res, 400, {
+      error: error.message || 'Recipe CSV import failed.'
+    });
   }
 }
 
@@ -1301,6 +2020,48 @@ async function exportIngredientsCsv() {
   return [header, ...dataRows].join('\n');
 }
 
+async function exportPortionsCsv() {
+  const rows = await allSql(
+    'SELECT recipe_name, ingredient_name, grams_in_portion FROM recipe_ingredients ORDER BY recipe_name COLLATE NOCASE ASC, ingredient_name COLLATE NOCASE ASC;'
+  );
+
+  function csvCell(value) {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  const header = 'recipe_name,ingredient_name,grams_in_portion';
+  const dataRows = rows.map((row) =>
+    [csvCell(row.recipe_name), csvCell(row.ingredient_name), csvCell(row.grams_in_portion)].join(',')
+  );
+  return [header, ...dataRows].join('\n');
+}
+
+async function exportRecipesCsv() {
+  const recipes = await queryRecipes();
+
+  function csvCell(value) {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  }
+
+  const header = 'recipe_name,ingredient_name';
+  const dataRows = recipes.flatMap((recipe) =>
+    (recipe.tagged_ingredients || []).map((ingredient) =>
+      [csvCell(recipe.name), csvCell(ingredient.name)].join(',')
+    )
+  );
+  return [header, ...dataRows].join('\n');
+}
+
 async function cleanupExpiredSessions() {
   await runSql(`DELETE FROM sessions WHERE expires_at <= ${sqlValue(new Date().toISOString())};`);
 }
@@ -1334,6 +2095,18 @@ async function requireAdmin(req, res) {
   }
   if (!user.isAdmin) {
     sendJson(res, 403, { error: 'Admin access required.' });
+    return null;
+  }
+  return user;
+}
+
+async function requireSuperAdmin(req, res) {
+  const user = await requireAdmin(req, res);
+  if (!user) {
+    return null;
+  }
+  if (!user.isSuperAdmin) {
+    sendJson(res, 403, { error: 'Super admin access required.' });
     return null;
   }
   return user;
@@ -1776,7 +2549,8 @@ async function handleApi(req, res, pathname, searchParams) {
     return sendJson(res, 200, {
       googleClientId: GOOGLE_CLIENT_ID || null,
       googleAuthEnabled: Boolean(GOOGLE_CLIENT_ID),
-      adminEmailsConfigured: ADMIN_EMAILS.size > 0
+      adminEmailsConfigured: ADMIN_EMAILS.size > 0,
+      superAdminEmailsConfigured: SUPERADMIN_EMAILS.size > 0
     });
   }
 
@@ -1821,6 +2595,10 @@ async function handleApi(req, res, pathname, searchParams) {
     return handleCsvImport(req, res);
   }
 
+  if (pathname === '/api/recipes/import' && method === 'POST') {
+    return handleRecipeCsvImport(req, res);
+  }
+
   if (pathname === '/api/public-recipes' && method === 'GET') {
     const search = searchParams.get('q') || '';
     const recipes = await queryRecipes(search);
@@ -1838,8 +2616,13 @@ async function handleApi(req, res, pathname, searchParams) {
   if (pathname === '/api/items' && method === 'GET') {
     const search = searchParams.get('q') || '';
     const items = await queryItems(search);
+    const avgGramsMap = await queryAvgGramsPerIngredient();
+    const itemsWithAvg = items.map((item) => ({
+      ...item,
+      avg_grams_in_portion: avgGramsMap.get(item.name.toLowerCase()) ?? null
+    }));
     return sendJson(res, 200, {
-      items,
+      items: itemsWithAvg,
       query: search,
       recipeScores: await queryRecipeScoresByNames(items.flatMap((item) => item.tagged_recipes || []))
     });
@@ -1872,7 +2655,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname === '/api/admin/clear-database' && method === 'POST') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
 
@@ -1956,7 +2739,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname.startsWith('/api/items/') && method === 'DELETE') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
 
@@ -1975,7 +2758,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname === '/api/admin/clear-ingredients' && method === 'POST') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
     try {
@@ -1988,7 +2771,7 @@ async function handleApi(req, res, pathname, searchParams) {
   }
 
   if (pathname === '/api/admin/clear-recipes' && method === 'POST') {
-    if (!await requireAdmin(req, res)) {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
     try {
@@ -1997,6 +2780,48 @@ async function handleApi(req, res, pathname, searchParams) {
     } catch (error) {
       console.error(error);
       return sendJson(res, 500, { error: error.message || 'Unable to clear recipes.' });
+    }
+  }
+
+  if (pathname === '/api/admin/backfill-portion-defaults' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      await runSql(`
+        UPDATE food_entries
+        SET default_grams_in_portion = (
+          SELECT AVG(ri.grams_in_portion)
+          FROM recipe_ingredients ri
+          WHERE lower(ri.ingredient_name) = lower(food_entries.name)
+        )
+        WHERE (
+          SELECT AVG(ri.grams_in_portion)
+          FROM recipe_ingredients ri
+          WHERE lower(ri.ingredient_name) = lower(food_entries.name)
+        ) IS NOT NULL;
+      `);
+      const updated = await getSql(`
+        SELECT COUNT(*) AS cnt FROM food_entries
+        WHERE default_grams_in_portion IS NOT NULL;
+      `);
+      return sendJson(res, 200, { updated: updated?.cnt ?? 0 });
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Backfill failed.' });
+    }
+  }
+
+  if (pathname === '/api/admin/clear-portion-defaults' && method === 'POST') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      await runSql(`UPDATE food_entries SET default_grams_in_portion = NULL;`);
+      return sendJson(res, 200, { cleared: true });
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Clear failed.' });
     }
   }
 
@@ -2023,8 +2848,54 @@ async function handleApi(req, res, pathname, searchParams) {
     }
   }
 
-  if (pathname.startsWith('/api/recipes/') && method === 'DELETE') {
+  if (pathname === '/api/admin/export-portions' && method === 'GET') {
     if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const csvText = await exportPortionsCsv();
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = `portions-export-${date}.csv`;
+      const buf = Buffer.from(csvText, 'utf-8');
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': buf.length,
+        'Cache-Control': 'no-store'
+      });
+      res.end(buf);
+      return;
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Portions export failed.' });
+    }
+  }
+
+  if (pathname === '/api/admin/export-recipes' && method === 'GET') {
+    if (!await requireAdmin(req, res)) {
+      return;
+    }
+    try {
+      const csvText = await exportRecipesCsv();
+      const date = new Date().toISOString().slice(0, 10);
+      const filename = `recipes-export-${date}.csv`;
+      const buf = Buffer.from(csvText, 'utf-8');
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': buf.length,
+        'Cache-Control': 'no-store'
+      });
+      res.end(buf);
+      return;
+    } catch (error) {
+      console.error(error);
+      return sendJson(res, 500, { error: error.message || 'Recipe export failed.' });
+    }
+  }
+
+  if (pathname.startsWith('/api/recipes/') && method === 'DELETE') {
+    if (!await requireSuperAdmin(req, res)) {
       return;
     }
     const id = Number(pathname.split('/').pop());
@@ -2036,9 +2907,81 @@ async function handleApi(req, res, pathname, searchParams) {
       return sendJson(res, 404, { error: 'Recipe not found.' });
     }
     const recipeName = recipeRow.name;
-    await runSql(`DELETE FROM recipes WHERE id = ${sqlValue(id)};`);
-    await cleanRecipeTagFromIngredients(recipeName);
+    const importedRecipeRow = await getSql(`
+      SELECT id
+      FROM recipe_ingredients
+      WHERE lower(recipe_name) = lower(${sqlValue(recipeName)})
+      LIMIT 1;
+    `);
+    await runSql(`
+      DELETE FROM recipe_ingredients
+      WHERE lower(recipe_name) = lower(${sqlValue(recipeName)});
+      DELETE FROM recipes WHERE id = ${sqlValue(id)};
+    `);
+    if (!importedRecipeRow) {
+      await cleanRecipeTagFromIngredients(recipeName);
+    }
+    await repopulateRecipes();
     return sendJson(res, 200, { deleted: true });
+  }
+
+  if (pathname === '/api/faqs' && method === 'GET') {
+    const rows = await allSql('SELECT * FROM faqs ORDER BY sort_order ASC, id ASC;');
+    return sendJson(res, 200, { faqs: rows.map((r) => ({
+      id: Number(r.id),
+      question: r.question,
+      answer: r.answer,
+      sort_order: Number(r.sort_order),
+      created_at: r.created_at,
+      updated_at: r.updated_at
+    })) });
+  }
+
+  if (pathname === '/api/faqs' && method === 'POST') {
+    if (!await requireAdmin(req, res)) return;
+    const body = await parseJsonBody(req);
+    const question = String(body.question || '').trim();
+    const answer = String(body.answer || '').trim();
+    if (!question || !answer) return sendJson(res, 400, { error: 'Question and answer are required.' });
+    const now = new Date().toISOString();
+    const maxRow = await getSql('SELECT MAX(sort_order) as m FROM faqs;');
+    const sortOrder = maxRow && maxRow.m !== null ? Number(maxRow.m) + 1 : 0;
+    await runSql(`INSERT INTO faqs (question, answer, sort_order, created_at, updated_at) VALUES (${sqlValue(question)}, ${sqlValue(answer)}, ${sqlValue(sortOrder)}, ${sqlValue(now)}, ${sqlValue(now)});`);
+    const idRow = await getSql('SELECT MAX(id) as id FROM faqs;');
+    return sendJson(res, 201, { id: Number(idRow.id), question, answer, sort_order: sortOrder });
+  }
+
+  if (pathname.startsWith('/api/faqs/') && method === 'PUT') {
+    if (!await requireAdmin(req, res)) return;
+    const id = Number(pathname.split('/').pop());
+    if (!Number.isInteger(id)) return sendJson(res, 400, { error: 'Invalid id.' });
+    const body = await parseJsonBody(req);
+    const question = String(body.question || '').trim();
+    const answer = String(body.answer || '').trim();
+    if (!question || !answer) return sendJson(res, 400, { error: 'Question and answer are required.' });
+    const now = new Date().toISOString();
+    await runSql(`UPDATE faqs SET question=${sqlValue(question)}, answer=${sqlValue(answer)}, updated_at=${sqlValue(now)} WHERE id=${sqlValue(id)};`);
+    return sendJson(res, 200, { id, question, answer });
+  }
+
+  if (pathname.startsWith('/api/faqs/') && method === 'DELETE') {
+    if (!await requireAdmin(req, res)) return;
+    const id = Number(pathname.split('/').pop());
+    if (!Number.isInteger(id)) return sendJson(res, 400, { error: 'Invalid id.' });
+    await runSql(`DELETE FROM faqs WHERE id=${sqlValue(id)};`);
+    return sendJson(res, 200, { deleted: true });
+  }
+
+  if (pathname === '/api/faqs/reorder' && method === 'POST') {
+    if (!await requireAdmin(req, res)) return;
+    const body = await parseJsonBody(req);
+    const order = body.order;
+    if (!Array.isArray(order)) return sendJson(res, 400, { error: 'order must be an array of ids.' });
+    const now = new Date().toISOString();
+    for (let i = 0; i < order.length; i++) {
+      await runSql(`UPDATE faqs SET sort_order=${sqlValue(i)}, updated_at=${sqlValue(now)} WHERE id=${sqlValue(Number(order[i]))};`);
+    }
+    return sendJson(res, 200, { ok: true });
   }
 
   return sendJson(res, 404, { error: 'Not found.' });
